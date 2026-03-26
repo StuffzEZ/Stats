@@ -1,0 +1,929 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Stats — Beautiful GitHub Profile Stats</title>
+<meta name="description" content="Auto-updating GitHub profile stats for your README. Set up in 60 seconds."/>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet"/>
+<style>
+  :root {
+    --bg:       #090c10;
+    --surface:  #0d1117;
+    --border:   #21262d;
+    --border2:  #30363d;
+    --text:     #e6edf3;
+    --muted:    #8b949e;
+    --accent:   #58a6ff;
+    --green:    #3fb950;
+    --orange:   #f0883e;
+    --purple:   #bc8cff;
+    --red:      #f85149;
+    --glow:     rgba(88,166,255,0.15);
+    --font-display: 'Syne', sans-serif;
+    --font-mono: 'JetBrains Mono', monospace;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-display);
+    overflow-x: hidden;
+    line-height: 1.6;
+  }
+
+  /* ── Grid bg ── */
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background-image:
+      linear-gradient(rgba(88,166,255,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(88,166,255,0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* ── Glow orbs ── */
+  .orb {
+    position: fixed;
+    border-radius: 50%;
+    filter: blur(80px);
+    pointer-events: none;
+    z-index: 0;
+    animation: drift 12s ease-in-out infinite alternate;
+  }
+  .orb1 { width: 500px; height: 500px; background: rgba(88,166,255,0.07); top: -100px; left: -100px; }
+  .orb2 { width: 400px; height: 400px; background: rgba(188,140,255,0.06); bottom: -80px; right: -80px; animation-delay: -6s; }
+  .orb3 { width: 300px; height: 300px; background: rgba(63,185,80,0.05); top: 40%; left: 50%; animation-delay: -3s; }
+
+  @keyframes drift {
+    from { transform: translate(0,0) scale(1); }
+    to   { transform: translate(30px,20px) scale(1.05); }
+  }
+
+  /* ── Layout ── */
+  .container { max-width: 1100px; margin: 0 auto; padding: 0 24px; position: relative; z-index: 1; }
+
+  /* ── Nav ── */
+  nav {
+    position: fixed; top: 0; left: 0; right: 0;
+    z-index: 100;
+    border-bottom: 1px solid var(--border);
+    background: rgba(9,12,16,0.85);
+    backdrop-filter: blur(16px);
+  }
+  .nav-inner {
+    max-width: 1100px; margin: 0 auto; padding: 0 24px;
+    height: 60px;
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .nav-logo {
+    font-family: var(--font-mono);
+    font-size: 1.1rem;
+    color: var(--accent);
+    text-decoration: none;
+    letter-spacing: -0.02em;
+  }
+  .nav-logo span { color: var(--muted); }
+  .nav-links { display: flex; gap: 8px; }
+  .nav-links a {
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    color: var(--muted);
+    text-decoration: none;
+    padding: 6px 12px;
+    border-radius: 6px;
+    border: 1px solid transparent;
+    transition: all 0.2s;
+  }
+  .nav-links a:hover { color: var(--text); border-color: var(--border2); background: var(--surface); }
+
+  /* ── Hero ── */
+  .hero {
+    min-height: 100vh;
+    display: flex; align-items: center;
+    padding: 80px 0 60px;
+  }
+  .hero-inner { text-align: center; width: 100%; }
+
+  .hero-badge {
+    display: inline-flex; align-items: center; gap: 8px;
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    color: var(--green);
+    background: rgba(63,185,80,0.08);
+    border: 1px solid rgba(63,185,80,0.2);
+    padding: 5px 14px;
+    border-radius: 100px;
+    margin-bottom: 32px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    animation: fadeUp 0.6s ease both;
+  }
+  .hero-badge::before { content: '●'; font-size: 0.5rem; animation: pulse 2s ease infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+  .hero h1 {
+    font-size: clamp(2.8rem, 7vw, 5.5rem);
+    font-weight: 800;
+    line-height: 1.05;
+    letter-spacing: -0.04em;
+    margin-bottom: 24px;
+    animation: fadeUp 0.6s 0.1s ease both;
+  }
+  .hero h1 .word-stats {
+    background: linear-gradient(135deg, var(--accent) 0%, var(--purple) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  .hero h1 .word-readme {
+    color: var(--green);
+  }
+
+  .hero-sub {
+    font-size: 1.15rem;
+    color: var(--muted);
+    max-width: 520px;
+    margin: 0 auto 40px;
+    font-weight: 400;
+    animation: fadeUp 0.6s 0.2s ease both;
+  }
+
+  .hero-actions {
+    display: flex; gap: 12px; justify-content: center; flex-wrap: wrap;
+    animation: fadeUp 0.6s 0.3s ease both;
+  }
+
+  .btn {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 12px 24px;
+    border-radius: 8px;
+    font-family: var(--font-mono);
+    font-size: 0.85rem;
+    font-weight: 500;
+    text-decoration: none;
+    cursor: pointer;
+    border: none;
+    transition: all 0.2s;
+    position: relative;
+    overflow: hidden;
+  }
+  .btn::after {
+    content: '';
+    position: absolute; inset: 0;
+    background: white;
+    opacity: 0;
+    transition: opacity 0.2s;
+  }
+  .btn:hover::after { opacity: 0.06; }
+  .btn:active { transform: scale(0.98); }
+
+  .btn-primary {
+    background: var(--accent);
+    color: #090c10;
+    font-weight: 700;
+    box-shadow: 0 0 30px rgba(88,166,255,0.25);
+  }
+  .btn-primary:hover { box-shadow: 0 0 40px rgba(88,166,255,0.4); }
+
+  .btn-ghost {
+    background: var(--surface);
+    color: var(--text);
+    border: 1px solid var(--border2);
+  }
+
+  /* ── Stats preview strip ── */
+  .stats-strip {
+    display: flex; gap: 16px; justify-content: center; flex-wrap: wrap;
+    margin-top: 64px;
+    animation: fadeUp 0.6s 0.4s ease both;
+  }
+  .stat-pill {
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    color: var(--muted);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    padding: 6px 14px;
+    border-radius: 100px;
+  }
+  .stat-pill strong { color: var(--text); }
+
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(16px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  /* ── Section ── */
+  section { padding: 80px 0; }
+  .section-label {
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    color: var(--accent);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    margin-bottom: 12px;
+  }
+  h2 {
+    font-size: clamp(1.8rem, 4vw, 2.8rem);
+    font-weight: 800;
+    letter-spacing: -0.03em;
+    margin-bottom: 16px;
+  }
+  .section-sub {
+    color: var(--muted);
+    font-size: 1rem;
+    max-width: 480px;
+    margin-bottom: 48px;
+  }
+
+  /* ── Demo search ── */
+  .demo-search-wrap {
+    max-width: 520px;
+    margin: 0 auto 40px;
+  }
+  .demo-search {
+    display: flex;
+    background: var(--surface);
+    border: 1px solid var(--border2);
+    border-radius: 10px;
+    overflow: hidden;
+    transition: border-color 0.2s, box-shadow 0.2s;
+  }
+  .demo-search:focus-within {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(88,166,255,0.1);
+  }
+  .demo-search-prefix {
+    display: flex; align-items: center;
+    padding: 0 0 0 16px;
+    font-family: var(--font-mono);
+    font-size: 0.85rem;
+    color: var(--muted);
+    white-space: nowrap;
+  }
+  .demo-search input {
+    flex: 1;
+    background: none;
+    border: none;
+    outline: none;
+    padding: 14px 12px;
+    font-family: var(--font-mono);
+    font-size: 0.9rem;
+    color: var(--text);
+  }
+  .demo-search input::placeholder { color: var(--muted); }
+  .demo-search button {
+    padding: 0 20px;
+    background: var(--accent);
+    border: none;
+    cursor: pointer;
+    font-family: var(--font-mono);
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: #090c10;
+    transition: background 0.2s;
+    white-space: nowrap;
+  }
+  .demo-search button:hover { background: #79c0ff; }
+
+  /* ── Features grid ── */
+  .features-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 16px;
+    margin-top: 48px;
+  }
+  .feature-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 28px;
+    transition: border-color 0.2s, transform 0.2s;
+    position: relative;
+    overflow: hidden;
+  }
+  .feature-card::before {
+    content: '';
+    position: absolute; top: 0; left: 0; right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, var(--accent), transparent);
+    opacity: 0;
+    transition: opacity 0.3s;
+  }
+  .feature-card:hover { border-color: var(--border2); transform: translateY(-2px); }
+  .feature-card:hover::before { opacity: 1; }
+
+  .feature-icon {
+    font-size: 1.6rem;
+    margin-bottom: 16px;
+    display: block;
+  }
+  .feature-card h3 {
+    font-size: 1rem;
+    font-weight: 700;
+    margin-bottom: 8px;
+    letter-spacing: -0.01em;
+  }
+  .feature-card p {
+    font-size: 0.85rem;
+    color: var(--muted);
+    line-height: 1.6;
+    font-family: var(--font-mono);
+  }
+
+  /* ── Setup section ── */
+  #setup { background: var(--surface); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+
+  .setup-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 48px;
+    align-items: start;
+  }
+  @media (max-width: 700px) { .setup-grid { grid-template-columns: 1fr; } }
+
+  .setup-steps { display: flex; flex-direction: column; gap: 0; }
+  .setup-step {
+    display: flex;
+    gap: 16px;
+    padding: 20px 0;
+    border-bottom: 1px solid var(--border);
+    position: relative;
+  }
+  .setup-step:last-child { border-bottom: none; }
+  .step-num {
+    width: 32px; height: 32px;
+    background: rgba(88,166,255,0.1);
+    border: 1px solid rgba(88,166,255,0.3);
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: var(--accent);
+    flex-shrink: 0;
+  }
+  .step-content h4 {
+    font-size: 0.9rem;
+    font-weight: 700;
+    margin-bottom: 4px;
+  }
+  .step-content p {
+    font-size: 0.8rem;
+    color: var(--muted);
+    font-family: var(--font-mono);
+  }
+
+  /* ── PAT setup form ── */
+  .pat-setup-card {
+    background: var(--bg);
+    border: 1px solid var(--border2);
+    border-radius: 14px;
+    padding: 28px;
+  }
+  .pat-setup-card h3 {
+    font-size: 1rem;
+    font-weight: 700;
+    margin-bottom: 8px;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .pat-setup-card .warning {
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    color: var(--orange);
+    background: rgba(240,136,62,0.08);
+    border: 1px solid rgba(240,136,62,0.2);
+    border-radius: 6px;
+    padding: 8px 12px;
+    margin-bottom: 20px;
+  }
+  .form-field { margin-bottom: 16px; }
+  .form-field label {
+    display: block;
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    color: var(--muted);
+    margin-bottom: 6px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+  .form-field input, .form-field select {
+    width: 100%;
+    background: var(--surface);
+    border: 1px solid var(--border2);
+    border-radius: 8px;
+    padding: 10px 14px;
+    font-family: var(--font-mono);
+    font-size: 0.82rem;
+    color: var(--text);
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  .form-field input:focus, .form-field select:focus { border-color: var(--accent); }
+  .form-field select option { background: var(--surface); }
+
+  .checkbox-group { display: flex; flex-direction: column; gap: 8px; }
+  .checkbox-item {
+    display: flex; align-items: center; gap: 10px;
+    font-family: var(--font-mono);
+    font-size: 0.8rem;
+    color: var(--muted);
+    cursor: pointer;
+  }
+  .checkbox-item input[type=checkbox] { accent-color: var(--accent); width: 14px; height: 14px; }
+  .checkbox-item:hover { color: var(--text); }
+
+  #generate-btn { width: 100%; margin-top: 8px; justify-content: center; }
+
+  .output-area {
+    margin-top: 20px;
+    display: none;
+  }
+  .output-area.visible { display: block; }
+  .output-label {
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-bottom: 8px;
+  }
+  .code-block {
+    background: #010409;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px;
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    color: var(--green);
+    overflow-x: auto;
+    white-space: pre-wrap;
+    word-break: break-all;
+    max-height: 200px;
+    overflow-y: auto;
+    position: relative;
+  }
+  .copy-btn {
+    margin-top: 8px;
+    font-size: 0.75rem;
+    padding: 6px 14px;
+  }
+  .success-msg {
+    display: none;
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    color: var(--green);
+    margin-top: 8px;
+  }
+
+  /* ── What you get ── */
+  .preview-sections {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 12px;
+    margin-top: 32px;
+  }
+  .preview-section-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px 20px;
+    display: flex; align-items: center; gap: 12px;
+  }
+  .preview-section-card .icon { font-size: 1.4rem; }
+  .preview-section-card .label {
+    font-size: 0.82rem;
+    font-weight: 700;
+  }
+  .preview-section-card .sublabel {
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    color: var(--muted);
+  }
+
+  /* ── Footer ── */
+  footer {
+    border-top: 1px solid var(--border);
+    padding: 32px 0;
+    text-align: center;
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    color: var(--muted);
+  }
+  footer a { color: var(--accent); text-decoration: none; }
+
+  /* ── Scrollbar ── */
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
+
+  /* ── Util ── */
+  .tag {
+    display: inline-block;
+    font-family: var(--font-mono);
+    font-size: 0.65rem;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-weight: 500;
+  }
+  .tag-blue { background: rgba(88,166,255,0.12); color: var(--accent); border: 1px solid rgba(88,166,255,0.2); }
+  .tag-green { background: rgba(63,185,80,0.12); color: var(--green); border: 1px solid rgba(63,185,80,0.2); }
+</style>
+</head>
+<body>
+
+<div class="orb orb1"></div>
+<div class="orb orb2"></div>
+<div class="orb orb3"></div>
+
+<nav>
+  <div class="nav-inner">
+    <a class="nav-logo" href="/">stats<span>/</span>hub</a>
+    <div class="nav-links">
+      <a href="#features">Features</a>
+      <a href="#setup">Manual Setup</a>
+      <a href="setup.html" style="color:var(--accent);border-color:rgba(88,166,255,0.3)">⚡ Auto Setup</a>
+      <a href="stats.html">View Stats</a>
+      <a href="https://github.com/StuffzEZ/Stats" target="_blank">GitHub ↗</a>
+    </div>
+  </div>
+</nav>
+
+<!-- ── HERO ── -->
+<main>
+<section class="hero">
+  <div class="container hero-inner">
+    <div class="hero-badge">Auto-updating · Free · Open Source</div>
+
+    <h1>
+      Beautiful <span class="word-stats">Stats</span><br/>
+      for your <span class="word-readme">README</span>
+    </h1>
+
+    <p class="hero-sub">
+      Auto-updating GitHub profile stats — projects, commits, issues, PRs, orgs and more. Set up in 60 seconds.
+    </p>
+
+    <div class="hero-actions">
+      <a href="setup.html" class="btn btn-primary">⚡ Auto Setup</a>
+      <a href="#setup" class="btn btn-ghost">⚙️ Manual Setup</a>
+      <a href="stats.html" class="btn btn-ghost">🔍 View Your Stats</a>
+    </div>
+
+    <div class="stats-strip">
+      <div class="stat-pill">📦 <strong>Projects</strong> table</div>
+      <div class="stat-pill">📊 <strong>Commit</strong> counts</div>
+      <div class="stat-pill">🐛 <strong>Issues</strong> tracker</div>
+      <div class="stat-pill">🔀 <strong>Pull Requests</strong></div>
+      <div class="stat-pill">🏢 <strong>Org</strong> avatars</div>
+      <div class="stat-pill">⚡ <strong>Live activity</strong> feed</div>
+    </div>
+  </div>
+</section>
+
+<!-- ── FEATURES ── -->
+<section id="features">
+  <div class="container">
+    <div class="section-label">What you get</div>
+    <h2>Everything in your README,<br/>automatically.</h2>
+    <p class="section-sub">Drop 7 comment markers into your README. The workflow fills them in every 6 hours.</p>
+
+    <div class="preview-sections">
+      <div class="preview-section-card"><span class="icon">📊</span><div><div class="label">GitHub Stats</div><div class="sublabel">Repos · Stars · Forks · Commits</div></div></div>
+      <div class="preview-section-card"><span class="icon">📦</span><div><div class="label">Recent Projects</div><div class="sublabel">Top 10 repos with language badges</div></div></div>
+      <div class="preview-section-card"><span class="icon">⚡</span><div><div class="label">Recent Activity</div><div class="sublabel">Pushes · Stars · PRs · Releases</div></div></div>
+      <div class="preview-section-card"><span class="icon">🐛</span><div><div class="label">Open Issues</div><div class="sublabel">With age badges & repo links</div></div></div>
+      <div class="preview-section-card"><span class="icon">🔀</span><div><div class="label">Open Pull Requests</div><div class="sublabel">Cross-repo PR tracking</div></div></div>
+      <div class="preview-section-card"><span class="icon">🏢</span><div><div class="label">Organisations</div><div class="sublabel">Avatar grid with links</div></div></div>
+    </div>
+
+    <div class="features-grid">
+      <div class="feature-card">
+        <span class="feature-icon">🔄</span>
+        <h3>Auto-refreshes every 6 hours</h3>
+        <p>A GitHub Actions workflow runs on a schedule. Your README is always up-to-date without lifting a finger.</p>
+      </div>
+      <div class="feature-card">
+        <span class="feature-icon">🛡️</span>
+        <h3>Your PAT never leaves GitHub</h3>
+        <p>Your Personal Access Token is stored as a repo secret, encrypted by GitHub. The stats website uses only the public GitHub API.</p>
+      </div>
+      <div class="feature-card">
+        <span class="feature-icon">🎨</span>
+        <h3>Fully customisable sections</h3>
+        <p>Choose which sections to include, how many repos to show, and whether to display orgs, issues, and PRs.</p>
+      </div>
+      <div class="feature-card">
+        <span class="feature-icon">🌐</span>
+        <h3>Public stats dashboard</h3>
+        <p>Share <code style="color:var(--accent);font-size:0.8em">stuffzez.github.io/Stats/stats.html?user=YOU</code> — a live dashboard using only public data.</p>
+      </div>
+      <div class="feature-card">
+        <span class="feature-icon">⚡</span>
+        <h3>One-click setup</h3>
+        <p>Enter your PAT, pick your options, and we generate the exact YAML and README markers you need to paste.</p>
+      </div>
+      <div class="feature-card">
+        <span class="feature-icon">📐</span>
+        <h3>Shields.io + readme-stats</h3>
+        <p>Uses industry-standard badge services so everything looks great on both light and dark GitHub themes.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── SETUP ── -->
+<section id="setup">
+  <div class="container">
+    <div class="section-label">Setup</div>
+    <h2>Ready in 60 seconds.</h2>
+    <p class="section-sub">Fill in the form to generate your personalised workflow file and README markers.</p>
+
+    <div class="setup-grid">
+      <!-- Steps -->
+      <div>
+        <div class="setup-steps">
+          <div class="setup-step">
+            <div class="step-num">01</div>
+            <div class="step-content">
+              <h4>Create a PAT</h4>
+              <p>GitHub → Settings → Developer Settings → Fine-grained tokens. Grant Contents: Read/Write + Metadata: Read on your profile repo.</p>
+            </div>
+          </div>
+          <div class="setup-step">
+            <div class="step-num">02</div>
+            <div class="step-content">
+              <h4>Fill in the form →</h4>
+              <p>Enter your username, paste your PAT, and choose which sections to include.</p>
+            </div>
+          </div>
+          <div class="setup-step">
+            <div class="step-num">03</div>
+            <div class="step-content">
+              <h4>Copy the workflow file</h4>
+              <p>Create <code style="color:var(--accent)">.github/workflows/update-readme.yml</code> in your profile repo and paste it in.</p>
+            </div>
+          </div>
+          <div class="setup-step">
+            <div class="step-num">04</div>
+            <div class="step-content">
+              <h4>Add the secret</h4>
+              <p>Repo Settings → Secrets → Actions → New secret. Name: <code style="color:var(--accent)">GH_PAT</code>, value: your token.</p>
+            </div>
+          </div>
+          <div class="setup-step">
+            <div class="step-num">05</div>
+            <div class="step-content">
+              <h4>Add markers to README</h4>
+              <p>Paste the generated comment markers wherever you want each section. Run the workflow manually to test.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Form -->
+      <div class="pat-setup-card">
+        <h3>⚙️ Generate Your Config</h3>
+        <div class="warning">
+          🔒 Your PAT is used only in-browser to generate the workflow YAML. It is never sent to any server.
+        </div>
+
+        <div class="form-field">
+          <label>GitHub Username</label>
+          <input id="f-username" type="text" placeholder="e.g. StuffzEZ" autocomplete="off"/>
+        </div>
+
+        <div class="form-field">
+          <label>Schedule (how often to refresh)</label>
+          <select id="f-schedule">
+            <option value="0 */6 * * *">Every 6 hours</option>
+            <option value="0 */12 * * *">Every 12 hours</option>
+            <option value="0 0 * * *">Once a day</option>
+            <option value="0 0 * * 1">Once a week (Monday)</option>
+          </select>
+        </div>
+
+        <div class="form-field">
+          <label>Sections to include</label>
+          <div class="checkbox-group">
+            <label class="checkbox-item"><input type="checkbox" id="s-header" checked/> Header (name, bio, links, badges)</label>
+            <label class="checkbox-item"><input type="checkbox" id="s-stats" checked/> Stats table + charts</label>
+            <label class="checkbox-item"><input type="checkbox" id="s-projects" checked/> Recent projects</label>
+            <label class="checkbox-item"><input type="checkbox" id="s-activity" checked/> Recent activity feed</label>
+            <label class="checkbox-item"><input type="checkbox" id="s-issues" checked/> Open issues</label>
+            <label class="checkbox-item"><input type="checkbox" id="s-prs" checked/> Open pull requests</label>
+            <label class="checkbox-item"><input type="checkbox" id="s-orgs" checked/> Organisation avatars</label>
+          </div>
+        </div>
+
+        <div class="form-field">
+          <label>Max repos to show</label>
+          <select id="f-repos">
+            <option value="5">5 repos</option>
+            <option value="10" selected>10 repos (recommended)</option>
+            <option value="15">15 repos</option>
+            <option value="20">20 repos</option>
+          </select>
+        </div>
+
+        <button id="generate-btn" class="btn btn-primary" onclick="generateConfig()">
+          ⚡ Generate Config
+        </button>
+
+        <div class="output-area" id="output-yaml">
+          <div class="output-label">workflow file → .github/workflows/update-readme.yml</div>
+          <div class="code-block" id="yaml-content"></div>
+          <button class="btn btn-ghost copy-btn" onclick="copy('yaml-content', 'copied-yaml')">📋 Copy YAML</button>
+          <div class="success-msg" id="copied-yaml">✓ Copied to clipboard!</div>
+        </div>
+
+        <div class="output-area" id="output-markers">
+          <div class="output-label" style="margin-top:16px">README markers — paste where you want each section</div>
+          <div class="code-block" id="markers-content"></div>
+          <button class="btn btn-ghost copy-btn" onclick="copy('markers-content', 'copied-markers')">📋 Copy Markers</button>
+          <div class="success-msg" id="copied-markers">✓ Copied to clipboard!</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── VIEW STATS ── -->
+<section id="view">
+  <div class="container" style="text-align:center">
+    <div class="section-label">Stats Dashboard</div>
+    <h2>View anyone's stats.</h2>
+    <p class="section-sub" style="margin:0 auto 32px">
+      The stats page uses only GitHub's public API — no PAT needed. Works for any public profile.
+    </p>
+    <div class="demo-search-wrap">
+      <div class="demo-search">
+        <span class="demo-search-prefix">stuffzez.github.io/Stats/stats.html?user=</span>
+        <input id="demo-input" type="text" placeholder="username" autocomplete="off"
+               onkeydown="if(event.key==='Enter')goToStats()"/>
+        <button onclick="goToStats()">View →</button>
+      </div>
+    </div>
+    <p style="font-family:var(--font-mono);font-size:0.75rem;color:var(--muted)">
+      Or share your stats page: <code style="color:var(--accent)">stuffzez.github.io/Stats/stats.html?user=YOUR_USERNAME</code>
+    </p>
+  </div>
+</section>
+
+</main>
+
+<footer>
+  <div class="container">
+    <p>
+      Built by <a href="https://github.com/StuffzEZ">StuffzEZ</a> ·
+      <a href="https://github.com/StuffzEZ/Stats">View on GitHub</a> ·
+      <a href="stats.html">Stats Dashboard</a>
+    </p>
+    <p style="margin-top:8px;font-size:0.68rem">
+      Your PAT is never transmitted — all processing happens in your browser.
+    </p>
+  </div>
+</footer>
+
+<script>
+function goToStats() {
+  const u = document.getElementById('demo-input').value.trim();
+  if (u) window.open(`stats.html?user=${encodeURIComponent(u)}`, '_blank');
+}
+
+function copy(id, msgId) {
+  const text = document.getElementById(id).innerText;
+  navigator.clipboard.writeText(text).then(() => {
+    const msg = document.getElementById(msgId);
+    msg.style.display = 'block';
+    setTimeout(() => msg.style.display = 'none', 2500);
+  });
+}
+
+function generateConfig() {
+  const username = document.getElementById('f-username').value.trim();
+  if (!username) { alert('Please enter your GitHub username.'); return; }
+
+  const schedule  = document.getElementById('f-schedule').value;
+  const maxRepos  = document.getElementById('f-repos').value;
+  const sections  = {
+    header:   document.getElementById('s-header').checked,
+    stats:    document.getElementById('s-stats').checked,
+    projects: document.getElementById('s-projects').checked,
+    activity: document.getElementById('s-activity').checked,
+    issues:   document.getElementById('s-issues').checked,
+    prs:      document.getElementById('s-prs').checked,
+    orgs:     document.getElementById('s-orgs').checked,
+  };
+
+  const injectLines = [];
+  if (sections.header)   injectLines.push(`    readme = inject(readme, "GITHUB_HEADER",   buildHeader(user));`);
+  if (sections.stats)    injectLines.push(`    readme = inject(readme, "GITHUB_STATS",    buildStats(user, totalCommits, repos, issues, prs, orgs));`);
+  if (sections.projects) injectLines.push(`    readme = inject(readme, "GITHUB_PROJECTS", buildProjects(repos, languages, ${maxRepos}));`);
+  if (sections.activity) injectLines.push(`    readme = inject(readme, "GITHUB_ACTIVITY", buildActivity(activity));`);
+  if (sections.issues)   injectLines.push(`    readme = inject(readme, "GITHUB_ISSUES",   buildIssues(issues));`);
+  if (sections.prs)      injectLines.push(`    readme = inject(readme, "GITHUB_PRS",       buildPRs(prs));`);
+  if (sections.orgs)     injectLines.push(`    readme = inject(readme, "GITHUB_ORGS",      buildOrgs(orgs));`);
+
+  const yaml = `name: Update README Stats
+
+on:
+  schedule:
+    - cron: '${schedule}'
+  push:
+    branches: [main, master]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  update-readme:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: \${{ secrets.GH_PAT }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - run: npm install @octokit/rest
+
+      - name: Write script
+        run: |
+          cat << 'SCRIPTEOF' > generate-stats.mjs
+          // Auto-generated by stuffzez.github.io/Stats
+          // Username: ${username} | Sections: ${Object.entries(sections).filter(([,v])=>v).map(([k])=>k).join(', ')}
+          import { Octokit } from "@octokit/rest";
+          import { readFileSync, writeFileSync } from "fs";
+          const octokit = new Octokit({ auth: process.env.GH_PAT });
+          const username = "${username}";
+          const pad = n => String(n).padStart(2,"0");
+          const fmt = iso => { const d=new Date(iso); return \`\${d.getFullYear()}-\${pad(d.getMonth()+1)}-\${pad(d.getDate())}\`; };
+          const daysAgo = iso => Math.floor((Date.now()-new Date(iso))/86400000);
+          const LANG_LOGOS = {"JavaScript":"javascript","TypeScript":"typescript","Python":"python","Rust":"rust","Go":"go","C++":"cplusplus","C#":"csharp","Java":"java","Ruby":"ruby","PHP":"php","Swift":"swift","Kotlin":"kotlin","HTML":"html5","CSS":"css3","Shell":"gnubash","Vue":"vuedotjs"};
+          function langBadges(langs) { const t=Object.values(langs).reduce((a,b)=>a+b,0); if(!t) return "—"; return Object.entries(langs).sort((a,b)=>b[1]-a[1]).slice(0,3).map(([l])=>\`![]\(https://img.shields.io/badge/-\${encodeURIComponent(l)}-05122A?style=flat-square&logo=\${LANG_LOGOS[l]||l.toLowerCase()}\`).join(" "); }
+          async function fetchRepos(){return (await octokit.paginate(octokit.repos.listForUser,{username,type:"owner",sort:"pushed",per_page:100})).filter(r=>!r.fork);}
+          async function fetchLanguages(repo){try{const{data}=await octokit.repos.listLanguages({owner:username,repo});return data;}catch{return{};}}
+          async function countCommits(repos){let t=0;for(const r of repos){try{const res=await octokit.request("GET /repos/{owner}/{repo}/commits",{owner:username,repo:r.name,author:username,per_page:1});const m=(res.headers.link||"").match(/page=(\\d+)>; rel="last"/);t+=m?parseInt(m[1]):res.data.length;}catch{}}return t;}
+          async function fetchIssues(){try{return(await octokit.paginate(octokit.issues.listForAuthenticatedUser,{filter:"created",state:"open",per_page:100})).filter(i=>!i.pull_request);}catch{return[];}}
+          async function fetchPRs(){try{const{data}=await octokit.search.issuesAndPullRequests({q:\`author:\${username} type:pr state:open\`,per_page:20});return data.items;}catch{return[];}}
+          async function fetchOrgs(){try{const{data}=await octokit.orgs.listForAuthenticatedUser({per_page:100});return data;}catch{try{const{data}=await octokit.orgs.listForUser({username,per_page:100});return data;}catch{return[];}}}
+          async function fetchUser(){try{const{data}=await octokit.users.getAuthenticated();return data;}catch{const{data}=await octokit.users.getByUsername({username});return data;}}
+          async function fetchActivity(){try{const{data}=await octokit.activity.listPublicEventsForUser({username,per_page:15});return data;}catch{return[];}}
+          function buildHeader(u){const bio=u.bio?\`\\n> \${u.bio}\\n\`:"";const loc=u.location?\`📍 **\${u.location}**\`:"";const blog=u.blog?\`🌐 [\${u.blog}](\${u.blog.startsWith("http")?u.blog:"https://"+u.blog})\`:"";const tw=u.twitter_username?\`🐦 [@\${u.twitter_username}](https://twitter.com/\${u.twitter_username})\`:"";const links=[loc,blog,tw].filter(Boolean).join(" · ");return \`<div align="center">\\n\\n# 👋 Hi, I'm \${u.name||username}\\n\${bio}\\n\${links}\\n\\n![Profile Views](https://komarev.com/ghpvc/?username=\${username}&color=6366f1&style=flat-square&label=Profile+Views) [![Followers](https://img.shields.io/github/followers/\${username}?label=Followers&style=flat-square&color=6366f1&logo=github)](https://github.com/\${username}?tab=followers)\\n\\n</div>\\n\\n---\\n\`;}
+          function buildStats(u,commits,repos,issues,prs,orgs){const stars=repos.reduce((s,r)=>s+r.stargazers_count,0);const forks=repos.reduce((s,r)=>s+r.forks_count,0);const now=new Date().toUTCString();return \`## 📊 GitHub Stats\\n\\n<div align="center">\\n\\n<img src="https://github-readme-stats.vercel.app/api?username=\${username}&show_icons=true&theme=tokyonight&hide_border=true&count_private=true" height="160"/> <img src="https://github-readme-stats.vercel.app/api/top-langs/?username=\${username}&layout=compact&theme=tokyonight&hide_border=true&langs_count=6" height="160"/>\\n\\n<img src="https://github-readme-streak-stats.herokuapp.com/?user=\${username}&theme=tokyonight&hide_border=true" height="150"/>\\n\\n</div>\\n\\n<div align="center">\\n\\n![Repos](https://img.shields.io/badge/Repos-\${u.public_repos}-6366f1?style=for-the-badge) ![Stars](https://img.shields.io/badge/Stars-\${stars}-f59e0b?style=for-the-badge) ![Forks](https://img.shields.io/badge/Forks-\${forks}-f97316?style=for-the-badge) ![Commits](https://img.shields.io/badge/Commits-\${commits}%2B-22c55e?style=for-the-badge) ![Issues](https://img.shields.io/badge/Issues-\${issues.length}-ef4444?style=for-the-badge) ![PRs](https://img.shields.io/badge/PRs-\${prs.length}-8b5cf6?style=for-the-badge) ![Orgs](https://img.shields.io/badge/Orgs-\${orgs.length}-0ea5e9?style=for-the-badge) ![Followers](https://img.shields.io/badge/Followers-\${u.followers}-ec4899?style=for-the-badge)\\n\\n</div>\\n\\n<sub>🕒 \${now}</sub>\\n\\n---\\n\`;}
+          function buildProjects(repos,languages,max=10){const rows=repos.slice(0,max).map(r=>{const l=langBadges(languages[r.name]||{});const d=(r.description||"—").replace(/\\|/g,"\\\\|").slice(0,55);const sb=r.stargazers_count>0?\`![](https://img.shields.io/github/stars/\${username}/\${r.name}?style=flat-square&color=f59e0b&label=⭐)\`:"";return \`| [**\\\`\${r.name}\\\`**](\${r.html_url}) | \${d} | \${l} | \${sb||"—"} | \\\`\${fmt(r.pushed_at)}\\\` |\`;});return \`## 📦 Recent Projects\\n\\n| Repository | Description | Stack | Stars | Last Push |\\n|------------|-------------|:-----:|:-----:|:---------:|\\n\${rows.join("\\n")}\\n\\n---\\n\`;}
+          function buildActivity(events){const map={PushEvent:e=>\`\\\`📦 Push\\\` → [\\\`\${e.repo.name}\\\`](https://github.com/\${e.repo.name})\`,CreateEvent:e=>\`\\\`✨ Create\\\` → \${e.payload.ref_type} in [\\\`\${e.repo.name}\\\`](https://github.com/\${e.repo.name})\`,IssuesEvent:e=>\`\\\`🐛 Issue\\\` → \${e.payload.action} in [\\\`\${e.repo.name}\\\`](https://github.com/\${e.repo.name})\`,PullRequestEvent:e=>\`\\\`🔀 PR\\\` → \${e.payload.action} in [\\\`\${e.repo.name}\\\`](https://github.com/\${e.repo.name})\`,WatchEvent:e=>\`\\\`⭐ Star\\\` → [\\\`\${e.repo.name}\\\`](https://github.com/\${e.repo.name})\`,ForkEvent:e=>\`\\\`🍴 Fork\\\` → [\\\`\${e.repo.name}\\\`](https://github.com/\${e.repo.name})\`,IssueCommentEvent:e=>\`\\\`💬 Comment\\\` → [\\\`\${e.repo.name}\\\`](https://github.com/\${e.repo.name})\`,ReleaseEvent:e=>\`\\\`🚀 Release\\\` → [\\\`\${e.repo.name}\\\`](https://github.com/\${e.repo.name})\`};const rows=events.filter(e=>map[e.type]).slice(0,8).map(e=>\`| \${map[e.type](e)} | \\\`\${fmt(e.created_at)}\\\` |\`);if(!rows.length)return"## ⚡ Recent Activity\\n\\n*No recent public activity.*\\n\\n---\\n";return \`## ⚡ Recent Activity\\n\\n| Event | Date |\\n|-------|:----:|\\n\${rows.join("\\n")}\\n\\n---\\n\`;}
+          function buildIssues(issues){if(!issues.length)return"## 🐛 Open Issues\\n\\n![](https://img.shields.io/badge/Open%20Issues-0-brightgreen?style=for-the-badge)\\n\\n---\\n";const rows=issues.slice(0,8).map(i=>{const repo=i.repository_url.replace("https://api.github.com/repos/","");const age=daysAgo(i.created_at);const c=age<7?"brightgreen":age<30?"yellow":"red";return\`| [\${i.title.replace(/\\|/g,"\\\\|").slice(0,55)}](\${i.html_url}) | [\\\`\${repo}\\\`](https://github.com/\${repo}) | ![](https://img.shields.io/badge/\${age}d-open-\${c}?style=flat-square) |\`;});return \`## 🐛 Open Issues\\n\\n| Title | Repository | Age |\\n|-------|------------|:---:|\\n\${rows.join("\\n")}\\n\\n---\\n\`;}
+          function buildPRs(prs){if(!prs.length)return"## 🔀 Open Pull Requests\\n\\n![](https://img.shields.io/badge/Open%20PRs-0-brightgreen?style=for-the-badge)\\n\\n---\\n";const rows=prs.slice(0,8).map(pr=>{const repo=pr.repository_url.replace("https://api.github.com/repos/","");const age=daysAgo(pr.created_at);return\`| [\${pr.title.replace(/\\|/g,"\\\\|").slice(0,55)}](\${pr.html_url}) | [\\\`\${repo}\\\`](https://github.com/\${repo}) | \\\`\${age}d ago\\\` |\`;});return \`## 🔀 Open Pull Requests\\n\\n| Title | Repository | Age |\\n|-------|------------|:---:|\\n\${rows.join("\\n")}\\n\\n---\\n\`;}
+          function buildOrgs(orgs){if(!orgs.length)return"";const avs=orgs.map(o=>\`<a href="https://github.com/\${o.login}" title="\${o.login}"><img src="\${o.avatar_url}&s=60" width="60" height="60" alt="\${o.login}" style="border-radius:12px;margin:4px"/></a>\`).join("\\n");return \`## 🏢 Organisations\\n\\n<div align="center">\\n\\n\${avs}\\n\\n</div>\\n\\n---\\n\`;}
+          function inject(readme,marker,content){const s=\`<!-- \${marker}:START -->\`,e=\`<!-- \${marker}:END -->\`,block=\`\${s}\\n\${content}\\n\${e}\`;return readme.includes(s)?readme.replace(new RegExp(\`\${s}[\\\\s\\\\S]*?\${e}\`),block):readme+"\\n"+block+"\\n";}
+          async function main(){console.log("⏳ Fetching data...");const[user,repos,issues,prs,orgs,activity]=await Promise.all([fetchUser(),fetchRepos(),fetchIssues(),fetchPRs(),fetchOrgs(),fetchActivity()]);const langEntries=await Promise.all(repos.slice(0,15).map(async r=>[r.name,await fetchLanguages(r.name)]));const languages=Object.fromEntries(langEntries);const totalCommits=await countCommits(repos.slice(0,20));let readme="";try{readme=readFileSync("README.md","utf8");}catch{readme=\`# \${username}\\n\`;}
+${injectLines.join('\n')}
+          writeFileSync("README.md",readme,"utf8");console.log("✅ Done.");}
+          main().catch(e=>{console.error(e);process.exit(1);});
+          SCRIPTEOF
+
+      - name: Run script
+        env:
+          GH_PAT: \${{ secrets.GH_PAT }}
+        run: node generate-stats.mjs
+
+      - name: Commit & push
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Actions Bot"
+          git add README.md
+          git diff --staged --quiet || git commit -m "docs: auto-update README stats [skip ci]"
+          git push`;
+
+  const markers = [];
+  if (sections.header)   markers.push('<!-- GITHUB_HEADER:START -->\n<!-- GITHUB_HEADER:END -->');
+  if (sections.stats)    markers.push('<!-- GITHUB_STATS:START -->\n<!-- GITHUB_STATS:END -->');
+  if (sections.projects) markers.push('<!-- GITHUB_PROJECTS:START -->\n<!-- GITHUB_PROJECTS:END -->');
+  if (sections.activity) markers.push('<!-- GITHUB_ACTIVITY:START -->\n<!-- GITHUB_ACTIVITY:END -->');
+  if (sections.issues)   markers.push('<!-- GITHUB_ISSUES:START -->\n<!-- GITHUB_ISSUES:END -->');
+  if (sections.prs)      markers.push('<!-- GITHUB_PRS:START -->\n<!-- GITHUB_PRS:END -->');
+  if (sections.orgs)     markers.push('<!-- GITHUB_ORGS:START -->\n<!-- GITHUB_ORGS:END -->');
+
+  document.getElementById('yaml-content').textContent = yaml;
+  document.getElementById('markers-content').textContent = markers.join('\n\n');
+  document.getElementById('output-yaml').classList.add('visible');
+  document.getElementById('output-markers').classList.add('visible');
+  document.getElementById('generate-btn').textContent = '✅ Generated — scroll down to copy';
+}
+</script>
+</body>
+</html>

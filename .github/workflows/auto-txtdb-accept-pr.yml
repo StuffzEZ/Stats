@@ -1,0 +1,213 @@
+name: Validate txtdb PR
+
+# ─────────────────────────────────────────────────────────────────────────────
+#  Runs on every PR to StuffzEZ/Stats.
+#  Rules:
+#    1. All changed files must be inside db/
+#    2. The only file changed must be db/PR_AUTHOR_USERNAME.txtdb
+#    3. The username= field inside the file must match the PR author
+#  On failure: close the PR and post a detailed comment explaining why.
+#  On success: post a confirmation comment and auto-merge (squash).
+# ─────────────────────────────────────────────────────────────────────────────
+
+on:
+  pull_request_target:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  pull-requests: write
+  contents: write
+  issues: write
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate and auto-merge or auto-close
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const pr     = context.payload.pull_request;
+            const author = pr.user.login.toLowerCase();
+            const prNum  = pr.number;
+            const sha    = pr.head.sha;
+
+            async function closePR(reason, detail) {
+              const body = `## ❌ PR Automatically Closed
+
+                            Hey @${pr.user.login}! This PR was automatically closed because it didn't pass validation.
+
+                            **Reason:** ${reason}
+
+                            ${detail}
+
+                            ---
+
+                            ### ℹ️ How txtdb PRs work
+
+                            This repo only accepts automated PRs that update **your own** \`db/${pr.user.login}.txtdb\` file.
+                            These are submitted by your profile repo's GitHub Actions workflow — you shouldn't need to open PRs manually.
+
+                            **To get set up:** https://stuffzez.github.io/Stats/setup.html
+                            **To read the docs:** https://stuffzez.github.io/Stats/txtdb.html
+
+                            If you think this was closed in error, please [open an issue](https://github.com/${context.repo.owner}/${context.repo.repo}/issues/new).`;
+
+                                          await github.rest.issues.createComment({
+                                            owner: context.repo.owner,
+                                            repo:  context.repo.repo,
+                                            issue_number: prNum,
+                                            body,
+                                          });
+
+                                          await github.rest.pulls.update({
+                                            owner: context.repo.owner,
+                                            repo:  context.repo.repo,
+                                            pull_number: prNum,
+                                            state: 'closed',
+                                          });
+
+                                          // Add invalid label (create it if it doesn't exist)
+                                          try {
+                                            await github.rest.issues.addLabels({
+                                              owner: context.repo.owner,
+                                              repo:  context.repo.repo,
+                                              issue_number: prNum,
+                                              labels: ['invalid-txtdb-pr'],
+                                            });
+                                          } catch {}
+
+                                          console.log(`❌ PR #${prNum} closed: ${reason}`);
+                                        }
+
+                                        // ── Get changed files ────────────────────────────────────────────
+                                        const { data: files } = await github.rest.pulls.listFiles({
+                                          owner: context.repo.owner,
+                                          repo:  context.repo.repo,
+                                          pull_number: prNum,
+                                          per_page: 100,
+                                        });
+                                        const changed = files.map(f => f.filename);
+                                        console.log(`PR #${prNum} by @${author} | files: ${changed.join(', ')}`);
+
+                                        // ── Rule 1: All files must be inside db/ ─────────────────────────
+                                        const outsideDb = changed.filter(f => !f.startsWith('db/'));
+                                        if (outsideDb.length > 0) {
+                                          await closePR(
+                                            'PR modifies files outside the `db/` directory.',
+                                            `**Files not allowed:**\n${outsideDb.map(f => `- \`${f}\``).join('\n')}\n\nOnly \`db/USERNAME.txtdb\` files are accepted in PRs to this repo.`
+                                          );
+                                          return;
+                                        }
+
+                                        // ── Rule 2: Must only touch db/AUTHOR.txtdb ──────────────────────
+                                        const expectedFile = `db/${author}.txtdb`;
+                                        const wrongFiles   = changed.filter(f => f !== expectedFile);
+
+                                        if (wrongFiles.length > 0) {
+                                          const isOtherUser  = wrongFiles.some(f => f.startsWith('db/') && f !== expectedFile);
+                                          const reason = isOtherUser
+                                            ? `PR modifies another user's \`.txtdb\` file.`
+                                            : `PR modifies unexpected files in \`db/\`.`;
+                                          await closePR(
+                                            reason,
+                                            `**Your file must be:** \`${expectedFile}\`\n\n**Files you tried to modify:**\n${wrongFiles.map(f => `- \`${f}\``).join('\n')}\n\nEach user may only modify their own \`.txtdb\` file. This protects the integrity of everyone's stats data.`
+                                          );
+                                          return;
+                                        }
+
+                                        // ── Rule 3: username= field must match PR author ──────────────────
+                                        try {
+                                          const { data: fileData } = await github.rest.repos.getContent({
+                                            owner: context.repo.owner,
+                                            repo:  context.repo.repo,
+                                            path:  expectedFile,
+                                            ref:   sha,
+                                          });
+                                          const content = Buffer.from(fileData.content, 'base64').toString('utf8');
+                                          const match   = content.match(/^username\s*=\s*(.+)$/m);
+                                          const fileUser = match ? match[1].trim().toLowerCase() : null;
+
+                                          if (!fileUser || fileUser !== author) {
+                                            await closePR(
+                                              `The \`username\` field inside the file doesn't match the PR author.`,
+                                              `**Expected username:** \`${author}\`\n**Found username:** \`${fileUser || '(not found)'}\`\n\nMake sure your \`.txtdb\` contains:\n\`\`\`\n[meta]\nusername = ${author}\n\`\`\`\n\nThis is normally set automatically by the Stats workflow.`
+                                            );
+                                            return;
+                                          }
+                                        } catch (e) {
+                                          if (e.status !== 404) {
+                                            console.warn('Could not read file content for validation:', e.message);
+                                            // Non-fatal — file might be new, proceed
+                                          }
+                                        }
+
+                                        // ── All checks passed — parse opt-ins for summary ────────────────
+                                        let optInSummary = '';
+                                        try {
+                                          const { data: fileData } = await github.rest.repos.getContent({
+                                            owner: context.repo.owner,
+                                            repo:  context.repo.repo,
+                                            path:  expectedFile,
+                                            ref:   sha,
+                                          });
+                                          const content = Buffer.from(fileData.content, 'base64').toString('utf8');
+                                          const opts = {
+                                            privateRepos:   /^show_private_repo_count\s*=\s*true/m.test(content),
+                                            allOrgs:        /^show_all_orgs\s*=\s*true/m.test(content),
+                                            privateCommits: /^show_private_commit_count\s*=\s*true/m.test(content),
+                                            pinned:         /^show_pinned_override\s*=\s*true/m.test(content),
+                                            customNotes:    /^show_custom_notes\s*=\s*true/m.test(content),
+                                          };
+                                          const activeOpts = Object.entries(opts).filter(([,v])=>v).map(([k])=>k);
+                                          if (activeOpts.length) {
+                                            optInSummary = `\n**Opted-in features:** ${activeOpts.map(k => `\`${k}\``).join(', ')}`;
+                                          }
+
+                                          // Parse last_updated
+                                          const updMatch = content.match(/^last_updated\s*=\s*(.+)$/m);
+                                          const lastUpd  = updMatch ? updMatch[1].trim() : new Date().toISOString();
+                                          optInSummary += `\n**Last updated:** ${lastUpd}`;
+                                        } catch {}
+
+                                        // ── Post success comment ─────────────────────────────────────────
+                                        await github.rest.issues.createComment({
+                                          owner: context.repo.owner,
+                                          repo:  context.repo.repo,
+                                          issue_number: prNum,
+                                          body: `## ✅ txtdb Updated — @${pr.user.login}
+
+                            Your stats database has been verified and will be merged now.
+                            ${optInSummary}
+
+                            | Link | |
+                            |------|---|
+                            | 📊 Stats Dashboard | https://stuffzez.github.io/Stats/stats.html?user=${pr.user.login} |
+                            | 📄 Your .txtdb | https://github.com/${context.repo.owner}/${context.repo.repo}/blob/main/db/${pr.user.login}.txtdb |
+                            | 👥 All Users | https://stuffzez.github.io/Stats/users.html |`,
+                                        });
+
+                                        // ── Auto-merge ───────────────────────────────────────────────────
+                                        try {
+                                          await github.rest.pulls.merge({
+                                            owner: context.repo.owner,
+                                            repo:  context.repo.repo,
+                                            pull_number: prNum,
+                                            merge_method: 'squash',
+                                            commit_title: `db: update ${author}.txtdb`,
+                                            commit_message: `Auto-validated and merged via txtdb workflow.\nStats page: https://stuffzez.github.io/Stats/stats.html?user=${author}`,
+                                          });
+                                          console.log(`✅ PR #${prNum} merged`);
+                                        } catch (e) {
+                                          console.log(`Could not auto-merge (branch protection?): ${e.message}`);
+                                          // Add approved label as fallback so a human can merge
+                                          try {
+                                            await github.rest.issues.addLabels({
+                                              owner: context.repo.owner,
+                                              repo:  context.repo.repo,
+                                              issue_number: prNum,
+                                              labels: ['txtdb-approved'],
+                                            });
+                                          } catch {}
+                                        }

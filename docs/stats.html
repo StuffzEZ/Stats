@@ -1,0 +1,782 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Stats Dashboard</title>
+<meta name="description" content="Full GitHub stats dashboard — public data only, no auth required."/>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+  :root {
+    --bg: #090c10; --surface: #0d1117; --surface2: #161b22;
+    --border: #21262d; --border2: #30363d;
+    --text: #e6edf3; --muted: #8b949e;
+    --accent: #58a6ff; --green: #3fb950; --orange: #f0883e;
+    --purple: #bc8cff; --red: #f85149; --yellow: #d29922;
+    --font: 'Syne', sans-serif; --mono: 'JetBrains Mono', monospace;
+  }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: var(--font); min-height: 100vh; }
+
+  body::before {
+    content: ''; position: fixed; inset: 0;
+    background-image: linear-gradient(rgba(88,166,255,0.025) 1px, transparent 1px), linear-gradient(90deg, rgba(88,166,255,0.025) 1px, transparent 1px);
+    background-size: 40px 40px; pointer-events: none; z-index: 0;
+  }
+
+  nav {
+    position: sticky; top: 0; z-index: 100;
+    border-bottom: 1px solid var(--border);
+    background: rgba(9,12,16,0.9);
+    backdrop-filter: blur(16px);
+  }
+  .nav-inner {
+    max-width: 1200px; margin: 0 auto; padding: 0 24px;
+    height: 58px; display: flex; align-items: center; justify-content: space-between;
+  }
+  .nav-logo { font-family: var(--mono); font-size: 1rem; color: var(--accent); text-decoration: none; }
+  .nav-logo span { color: var(--muted); }
+  .nav-back { font-family: var(--mono); font-size: 0.78rem; color: var(--muted); text-decoration: none; padding: 6px 12px; border-radius: 6px; border: 1px solid var(--border2); transition: all 0.2s; }
+  .nav-back:hover { color: var(--text); border-color: var(--accent); }
+
+  .page { max-width: 1200px; margin: 0 auto; padding: 40px 24px 80px; position: relative; z-index: 1; }
+
+  /* Search */
+  .search-bar { display: flex; gap: 10px; margin-bottom: 40px; }
+  .search-bar input {
+    flex: 1; max-width: 380px;
+    background: var(--surface); border: 1px solid var(--border2); border-radius: 8px;
+    padding: 10px 16px; font-family: var(--mono); font-size: 0.88rem; color: var(--text); outline: none;
+    transition: border-color 0.2s;
+  }
+  .search-bar input:focus { border-color: var(--accent); }
+  .search-bar button {
+    background: var(--accent); color: #090c10; border: none; border-radius: 8px;
+    padding: 10px 20px; font-family: var(--mono); font-size: 0.85rem; font-weight: 700; cursor: pointer;
+    transition: background 0.2s;
+  }
+  .search-bar button:hover { background: #79c0ff; }
+
+  /* State screens */
+  .state-screen {
+    text-align: center; padding: 80px 20px;
+    font-family: var(--mono); color: var(--muted);
+  }
+  .state-screen .big-icon { font-size: 3rem; margin-bottom: 16px; }
+  .state-screen h2 { font-size: 1.2rem; color: var(--text); margin-bottom: 8px; }
+  .state-screen p { font-size: 0.85rem; }
+
+  /* Profile header */
+  .profile-header {
+    display: flex; gap: 24px; align-items: flex-start;
+    background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
+    padding: 28px; margin-bottom: 24px;
+  }
+  .profile-avatar {
+    width: 88px; height: 88px; border-radius: 50%;
+    border: 3px solid var(--border2); flex-shrink: 0;
+  }
+  .profile-info { flex: 1; }
+  .profile-name { font-size: 1.6rem; font-weight: 800; letter-spacing: -0.03em; margin-bottom: 4px; }
+  .profile-login { font-family: var(--mono); font-size: 0.85rem; color: var(--muted); margin-bottom: 10px; }
+  .profile-bio { font-size: 0.9rem; color: var(--muted); margin-bottom: 12px; max-width: 500px; }
+  .profile-meta { display: flex; flex-wrap: wrap; gap: 16px; }
+  .profile-meta-item { font-family: var(--mono); font-size: 0.78rem; color: var(--muted); display: flex; align-items: center; gap: 6px; }
+  .profile-meta-item a { color: var(--accent); text-decoration: none; }
+  .profile-meta-item a:hover { text-decoration: underline; }
+  .profile-actions { display: flex; gap: 8px; flex-direction: column; align-items: flex-end; }
+  .gh-link {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-family: var(--mono); font-size: 0.78rem; color: var(--muted);
+    background: var(--surface2); border: 1px solid var(--border2); border-radius: 6px;
+    padding: 6px 12px; text-decoration: none; transition: all 0.2s; white-space: nowrap;
+  }
+  .gh-link:hover { color: var(--text); border-color: var(--accent); }
+
+  /* Stats grid */
+  .stats-grid {
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 24px;
+  }
+  @media (max-width: 900px) { .stats-grid { grid-template-columns: repeat(2, 1fr); } }
+  @media (max-width: 500px) { .stats-grid { grid-template-columns: 1fr 1fr; } }
+
+  .stat-card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+    padding: 20px; text-align: center; transition: border-color 0.2s, transform 0.2s;
+  }
+  .stat-card:hover { border-color: var(--border2); transform: translateY(-1px); }
+  .stat-value { font-size: 2rem; font-weight: 800; letter-spacing: -0.04em; line-height: 1; margin-bottom: 4px; }
+  .stat-label { font-family: var(--mono); font-size: 0.7rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; }
+
+  /* Charts row */
+  .charts-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 24px; }
+  @media (max-width: 720px) { .charts-row { grid-template-columns: 1fr; } }
+
+  .card {
+    background: var(--surface); border: 1px solid var(--border); border-radius: 12px; overflow: hidden;
+  }
+  .card-header {
+    padding: 16px 20px 0;
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .card-title { font-size: 0.9rem; font-weight: 700; display: flex; align-items: center; gap: 8px; }
+  .card-subtitle { font-family: var(--mono); font-size: 0.7rem; color: var(--muted); }
+  .card-body { padding: 16px 20px 20px; }
+  .chart-wrap { position: relative; height: 220px; }
+
+  /* Repos table */
+  .repos-section { margin-bottom: 24px; }
+  .repos-table { width: 100%; border-collapse: collapse; }
+  .repos-table th {
+    text-align: left; font-family: var(--mono); font-size: 0.68rem;
+    color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em;
+    padding: 8px 12px; border-bottom: 1px solid var(--border);
+  }
+  .repos-table td { padding: 12px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+  .repos-table tr:last-child td { border-bottom: none; }
+  .repos-table tr:hover td { background: rgba(88,166,255,0.03); }
+  .repo-name { font-weight: 700; font-size: 0.88rem; color: var(--accent); text-decoration: none; }
+  .repo-name:hover { text-decoration: underline; }
+  .repo-desc { font-family: var(--mono); font-size: 0.75rem; color: var(--muted); max-width: 300px; }
+  .repo-meta { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+  .repo-stat { font-family: var(--mono); font-size: 0.72rem; color: var(--muted); display: flex; align-items: center; gap: 4px; }
+  .lang-dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+
+  /* Orgs */
+  .orgs-grid { display: flex; flex-wrap: wrap; gap: 12px; padding: 20px; }
+  .org-card {
+    display: flex; align-items: center; gap: 10px;
+    background: var(--surface2); border: 1px solid var(--border); border-radius: 10px;
+    padding: 10px 14px; text-decoration: none; transition: all 0.2s;
+  }
+  .org-card:hover { border-color: var(--accent); transform: translateY(-1px); }
+  .org-avatar { width: 36px; height: 36px; border-radius: 8px; }
+  .org-name { font-size: 0.82rem; font-weight: 600; color: var(--text); }
+  .org-handle { font-family: var(--mono); font-size: 0.7rem; color: var(--muted); }
+
+  /* Activity */
+  .activity-list { display: flex; flex-direction: column; }
+  .activity-item {
+    display: flex; align-items: flex-start; gap: 12px;
+    padding: 12px 20px; border-bottom: 1px solid var(--border);
+  }
+  .activity-item:last-child { border-bottom: none; }
+  .activity-icon {
+    font-size: 1rem; width: 32px; height: 32px;
+    background: var(--surface2); border-radius: 8px;
+    display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+  }
+  .activity-text { font-size: 0.82rem; line-height: 1.5; }
+  .activity-text a { color: var(--accent); text-decoration: none; }
+  .activity-text a:hover { text-decoration: underline; }
+  .activity-date { font-family: var(--mono); font-size: 0.7rem; color: var(--muted); margin-left: auto; white-space: nowrap; flex-shrink: 0; }
+
+  /* Language bar */
+  .lang-bar-wrap { padding: 0 20px 20px; }
+  .lang-bar { height: 8px; border-radius: 4px; overflow: hidden; display: flex; margin-bottom: 14px; }
+  .lang-segment { height: 100%; transition: width 0.6s ease; }
+  .lang-legend { display: flex; flex-wrap: wrap; gap: 10px; }
+  .lang-item { display: flex; align-items: center; gap: 6px; font-family: var(--mono); font-size: 0.72rem; color: var(--muted); }
+
+  /* Issues / PRs */
+  .issue-list { display: flex; flex-direction: column; }
+  .issue-item {
+    display: flex; align-items: center; gap: 12px;
+    padding: 12px 20px; border-bottom: 1px solid var(--border); text-decoration: none; transition: background 0.15s;
+  }
+  .issue-item:last-child { border-bottom: none; }
+  .issue-item:hover { background: rgba(88,166,255,0.03); }
+  .issue-icon { font-size: 0.9rem; flex-shrink: 0; }
+  .issue-title { font-size: 0.83rem; color: var(--text); flex: 1; }
+  .issue-repo { font-family: var(--mono); font-size: 0.7rem; color: var(--muted); }
+  .age-badge {
+    font-family: var(--mono); font-size: 0.68rem; padding: 2px 8px; border-radius: 100px;
+    white-space: nowrap; flex-shrink: 0;
+  }
+  .age-new { background: rgba(63,185,80,0.12); color: var(--green); border: 1px solid rgba(63,185,80,0.2); }
+  .age-mid { background: rgba(210,153,34,0.12); color: var(--yellow); border: 1px solid rgba(210,153,34,0.2); }
+  .age-old { background: rgba(248,81,73,0.12); color: var(--red); border: 1px solid rgba(248,81,73,0.2); }
+
+  /* README link banner */
+  .readme-banner {
+    background: linear-gradient(135deg, rgba(88,166,255,0.08), rgba(188,140,255,0.08));
+    border: 1px solid rgba(88,166,255,0.2);
+    border-radius: 12px; padding: 20px 24px;
+    display: flex; align-items: center; justify-content: space-between; gap: 16px;
+    margin-bottom: 24px; flex-wrap: wrap;
+  }
+  .readme-banner-text h3 { font-size: 0.95rem; font-weight: 700; margin-bottom: 4px; }
+  .readme-banner-text p { font-family: var(--mono); font-size: 0.75rem; color: var(--muted); }
+  .readme-banner a {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: var(--accent); color: #090c10; border: none; border-radius: 8px;
+    padding: 9px 18px; font-family: var(--mono); font-size: 0.8rem; font-weight: 700;
+    text-decoration: none; white-space: nowrap; transition: background 0.2s;
+  }
+  .readme-banner a:hover { background: #79c0ff; }
+
+  /* Section titles */
+  .section-title {
+    font-size: 0.72rem; font-family: var(--mono); color: var(--muted);
+    text-transform: uppercase; letter-spacing: 0.1em; padding: 12px 20px 4px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  /* Responsive */
+  @media (max-width: 700px) {
+    .profile-header { flex-direction: column; }
+    .profile-actions { flex-direction: row; align-items: flex-start; }
+  }
+
+  /* Spinner */
+  .spinner {
+    width: 32px; height: 32px; border-radius: 50%;
+    border: 3px solid var(--border2); border-top-color: var(--accent);
+    animation: spin 0.7s linear infinite; margin: 0 auto 16px;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* Fade in */
+  .fade-in { animation: fadeIn 0.4s ease both; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+
+  /* ── See More / Show Less ── */
+  .see-more-wrap {
+    display: flex; align-items: center; gap: 12px;
+    padding: 12px 20px;
+    border-top: 1px solid var(--border);
+  }
+  .see-more-btn {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-family: var(--mono); font-size: 0.75rem; font-weight: 600;
+    color: var(--accent);
+    background: rgba(88,166,255,0.06);
+    border: 1px solid rgba(88,166,255,0.2);
+    border-radius: 6px; padding: 6px 14px; cursor: pointer;
+    transition: all 0.2s; outline: none;
+  }
+  .see-more-btn:hover {
+    background: rgba(88,166,255,0.12);
+    border-color: rgba(88,166,255,0.4);
+    transform: translateY(-1px);
+  }
+  .see-more-btn .chevron { transition: transform 0.25s ease; display: inline-block; }
+  .see-more-btn.expanded .chevron { transform: rotate(180deg); }
+  .see-more-count { font-family: var(--mono); font-size: 0.7rem; color: var(--muted); }
+  .extra-row  { display: none; }
+  .extra-item { display: none; }
+  .extra-org  { display: none; }
+  .extra-row.visible  { display: table-row; animation: fadeIn 0.25s ease both; }
+  .extra-item.visible { display: flex;       animation: fadeIn 0.25s ease both; }
+  .extra-org.visible  { display: flex;       animation: fadeIn 0.25s ease both; }
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="nav-inner">
+    <a class="nav-logo" href="index.html">stats<span>/</span>hub</a>
+    <a class="nav-back" href="index.html">← Back</a>
+  </div>
+</nav>
+
+<div class="page">
+  <!-- Search bar always visible -->
+  <div class="search-bar">
+    <input id="username-input" type="text" placeholder="Enter GitHub username…" autocomplete="off"
+           onkeydown="if(event.key==='Enter')loadUser()"/>
+    <button onclick="loadUser()">View Stats →</button>
+  </div>
+
+  <div id="main-content">
+    <div class="state-screen">
+      <div class="big-icon">🔍</div>
+      <h2>Enter a GitHub username</h2>
+      <p>View full stats for any public GitHub profile — no auth required.</p>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── Colour map for top languages ──────────────────────────────────────────
+const LANG_COLORS = {
+  JavaScript:'#f1e05a', TypeScript:'#3178c6', Python:'#3572A5', Rust:'#dea584',
+  Go:'#00ADD8', 'C++':'#f34b7d', 'C#':'#178600', Java:'#b07219', Ruby:'#701516',
+  PHP:'#4F5D95', Swift:'#F05138', Kotlin:'#A97BFF', Dart:'#00B4AB',
+  HTML:'#e34c26', CSS:'#563d7c', Shell:'#89e051', Vue:'#41b883',
+  Scala:'#c22d40', R:'#198CE7', Lua:'#000080', Perl:'#0298c3',
+  Haskell:'#5e5086', Elixir:'#6e4a7e', Clojure:'#db5855', Default:'#8b949e'
+};
+
+const fmt = iso => { const d=new Date(iso); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; };
+const daysAgo = iso => Math.floor((Date.now()-new Date(iso))/86400000);
+const ageBadge = days => {
+  if (days < 7)  return `<span class="age-badge age-new">${days}d ago</span>`;
+  if (days < 30) return `<span class="age-badge age-mid">${days}d ago</span>`;
+  return `<span class="age-badge age-old">${days}d ago</span>`;
+};
+
+let chartInstances = {};
+
+function destroyCharts() {
+  Object.values(chartInstances).forEach(c => c.destroy());
+  chartInstances = {};
+}
+
+// Read username from URL ?user=…
+window.addEventListener('DOMContentLoaded', () => {
+  const params = new URLSearchParams(location.search);
+  const u = params.get('user');
+  if (u) {
+    document.getElementById('username-input').value = u;
+    loadUser(u);
+  }
+});
+
+function loadUser(override) {
+  const username = override || document.getElementById('username-input').value.trim();
+  if (!username) return;
+  // Update URL without reload
+  history.replaceState({}, '', `?user=${encodeURIComponent(username)}`);
+  fetchStats(username);
+}
+
+function setContent(html) {
+  document.getElementById('main-content').innerHTML = html;
+}
+
+function showLoading(username) {
+  setContent(`
+    <div class="state-screen">
+      <div class="spinner"></div>
+      <h2>Loading ${username}…</h2>
+      <p>Fetching public GitHub data</p>
+    </div>`);
+}
+
+function showError(msg) {
+  setContent(`
+    <div class="state-screen">
+      <div class="big-icon">⚠️</div>
+      <h2>Couldn't load profile</h2>
+      <p>${msg}</p>
+    </div>`);
+}
+
+async function gh(path) {
+  const res = await fetch(`https://api.github.com${path}`, {
+    headers: { Accept: 'application/vnd.github.v3+json' }
+  });
+  if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
+  return res.json();
+}
+
+async function ghRaw(path) {
+  const res = await fetch(`https://api.github.com${path}`, {
+    headers: { Accept: 'application/vnd.github.v3+json' }
+  });
+  return { data: await res.json(), headers: Object.fromEntries(res.headers) };
+}
+
+async function fetchStats(username) {
+  showLoading(username);
+  destroyCharts();
+
+  try {
+    // Parallel fetch: user + repos + orgs + activity
+    const [user, repos, orgsData, activityData] = await Promise.all([
+      gh(`/users/${encodeURIComponent(username)}`),
+      gh(`/users/${encodeURIComponent(username)}/repos?type=owner&sort=pushed&per_page=100`),
+      gh(`/users/${encodeURIComponent(username)}/orgs?per_page=100`).catch(() => []),
+      gh(`/users/${encodeURIComponent(username)}/events/public?per_page=20`).catch(() => []),
+    ]);
+
+    const ownRepos = repos.filter(r => !r.fork);
+    const totalStars = ownRepos.reduce((s,r) => s + r.stargazers_count, 0);
+    const totalForks = ownRepos.reduce((s,r) => s + r.forks_count, 0);
+
+    // Aggregate languages from top 20 repos
+    const langTotals = {};
+    const langFetches = await Promise.allSettled(
+      ownRepos.slice(0,20).map(r => gh(`/repos/${username}/${r.name}/languages`))
+    );
+    langFetches.forEach(res => {
+      if (res.status === 'fulfilled') {
+        Object.entries(res.value).forEach(([l,b]) => { langTotals[l] = (langTotals[l]||0)+b; });
+      }
+    });
+
+    render(user, ownRepos, orgsData, activityData, langTotals, totalStars, totalForks);
+  } catch(e) {
+    showError(e.message.includes('404') ? 'User not found. Check the username and try again.' : e.message);
+  }
+}
+
+function render(user, repos, orgs, activity, langTotals, totalStars, totalForks) {
+  const INITIAL_REPOS    = 8;
+  const INITIAL_ACTIVITY = 5;
+  const INITIAL_ORGS     = 6;
+  const INITIAL_LANGS    = 6;
+  const memberSince = new Date(user.created_at).getFullYear();
+
+  const html = `
+  <div class="fade-in">
+
+    <!-- README banner -->
+    <div class="readme-banner">
+      <div class="readme-banner-text">
+        <h3>📝 Want this in your README?</h3>
+        <p>Auto-updating stats for <strong>${user.login}</strong> — set up in 60 seconds.</p>
+      </div>
+      <a href="index.html#setup">⚡ Set up for my README</a>
+    </div>
+
+    <!-- Profile -->
+    <div class="profile-header">
+      <img class="profile-avatar" src="${user.avatar_url}" alt="${user.login}"/>
+      <div class="profile-info">
+        <div class="profile-name">${user.name || user.login}</div>
+        <div class="profile-login">@${user.login} · member since ${memberSince}</div>
+        ${user.bio ? `<div class="profile-bio">${user.bio}</div>` : ''}
+        <div class="profile-meta">
+          ${user.location ? `<div class="profile-meta-item">📍 ${user.location}</div>` : ''}
+          ${user.blog ? `<div class="profile-meta-item">🌐 <a href="${user.blog.startsWith('http')?user.blog:'https://'+user.blog}" target="_blank">${user.blog}</a></div>` : ''}
+          ${user.twitter_username ? `<div class="profile-meta-item">🐦 <a href="https://twitter.com/${user.twitter_username}" target="_blank">@${user.twitter_username}</a></div>` : ''}
+          ${user.company ? `<div class="profile-meta-item">🏢 ${user.company}</div>` : ''}
+        </div>
+      </div>
+      <div class="profile-actions">
+        <a class="gh-link" href="https://github.com/${user.login}" target="_blank">View on GitHub ↗</a>
+      </div>
+    </div>
+
+    <!-- Stats cards -->
+    <div class="stats-grid">
+      <div class="stat-card"><div class="stat-value" style="color:var(--accent)">${user.public_repos}</div><div class="stat-label">Public Repos</div></div>
+      <div class="stat-card"><div class="stat-value" style="color:var(--yellow)">${totalStars.toLocaleString()}</div><div class="stat-label">Total Stars</div></div>
+      <div class="stat-card"><div class="stat-value" style="color:var(--orange)">${totalForks.toLocaleString()}</div><div class="stat-label">Total Forks</div></div>
+      <div class="stat-card"><div class="stat-value" style="color:var(--green)">${user.followers.toLocaleString()}</div><div class="stat-label">Followers</div></div>
+      <div class="stat-card"><div class="stat-value" style="color:var(--purple)">${user.following.toLocaleString()}</div><div class="stat-label">Following</div></div>
+      <div class="stat-card"><div class="stat-value" style="color:var(--accent)">${orgs.length}</div><div class="stat-label">Organisations</div></div>
+      <div class="stat-card"><div class="stat-value" style="color:var(--green)">${user.public_gists}</div><div class="stat-label">Public Gists</div></div>
+      <div class="stat-card"><div class="stat-value" style="color:var(--muted)">${memberSince}</div><div class="stat-label">Member Since</div></div>
+    </div>
+
+    <!-- Charts row -->
+    <div class="charts-row">
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">🌐 Language Breakdown</div>
+          <div class="card-subtitle">Top 20 repos</div>
+        </div>
+        ${buildLangBar(langTotals, INITIAL_LANGS)}
+      </div>
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">⭐ Stars by Repo</div>
+          <div class="card-subtitle" id="stars-subtitle">Top 8 starred</div>
+        </div>
+        <div class="card-body">
+          <div class="chart-wrap"><canvas id="stars-chart"></canvas></div>
+        </div>
+        ${repos.filter(r=>r.stargazers_count>0).length > 8 ? `
+        <div class="see-more-wrap">
+          <button class="see-more-btn" id="stars-more-btn" onclick="toggleStarsChart(this)">
+            Show more repos <span class="chevron">▼</span>
+          </button>
+          <span class="see-more-count" id="stars-more-count">${repos.filter(r=>r.stargazers_count>0).length - 8} more</span>
+        </div>` : ''}
+      </div>
+    </div>
+
+    <!-- Orgs -->
+    ${orgs.length ? buildOrgsSection(orgs, INITIAL_ORGS) : ''}
+
+    <!-- Repos table -->
+    ${buildReposTable(repos, INITIAL_REPOS)}
+
+    <!-- Activity -->
+    ${buildActivitySection(activity, INITIAL_ACTIVITY)}
+
+    <!-- Footer note -->
+    <div style="text-align:center;font-family:var(--mono);font-size:0.72rem;color:var(--muted);padding:16px 0">
+      Data sourced from the public GitHub API · No authentication used ·
+      <a href="index.html" style="color:var(--accent);text-decoration:none">Set up README stats →</a>
+    </div>
+
+  </div>`;
+
+  setContent(html);
+
+  // Store repos on window for chart toggling
+  window._statsRepos = repos;
+  window._statsChartExpanded = false;
+
+  requestAnimationFrame(() => {
+    renderStarsChart(repos, 8);
+  });
+}
+
+// ── Repos table with See More ─────────────────────────────────────────────────
+function buildReposTable(repos, initial) {
+  const rows = repos.map((r, i) => {
+    const extra = i >= initial ? 'class="extra-row"' : '';
+    return `
+      <tr ${extra}>
+        <td><a class="repo-name" href="${r.html_url}" target="_blank">${r.name}</a></td>
+        <td><div class="repo-desc">${(r.description||'—').slice(0,60)}</div></td>
+        <td>
+          ${r.language ? `<span style="display:flex;align-items:center;gap:6px;font-family:var(--mono);font-size:0.75rem">
+            <span class="lang-dot" style="background:${LANG_COLORS[r.language]||LANG_COLORS.Default}"></span>
+            ${r.language}
+          </span>` : '<span style="color:var(--muted);font-family:var(--mono);font-size:0.75rem">—</span>'}
+        </td>
+        <td style="font-family:var(--mono);font-size:0.8rem;color:var(--yellow)">${r.stargazers_count}</td>
+        <td style="font-family:var(--mono);font-size:0.8rem;color:var(--muted)">${r.forks_count}</td>
+        <td style="font-family:var(--mono);font-size:0.8rem;color:var(--muted)">${r.open_issues_count}</td>
+        <td style="font-family:var(--mono);font-size:0.75rem;color:var(--muted)">${fmt(r.pushed_at)}</td>
+      </tr>`;
+  }).join('');
+
+  const hiddenCount = repos.length - initial;
+  const seeMore = hiddenCount > 0 ? `
+    <div class="see-more-wrap">
+      <button class="see-more-btn" id="repos-more-btn" onclick="toggleSection('repos', ${initial})">
+        Show ${hiddenCount} more repos <span class="chevron">▼</span>
+      </button>
+      <span class="see-more-count" id="repos-more-count">showing ${initial} of ${repos.length}</span>
+    </div>` : '';
+
+  return `
+    <div class="card repos-section">
+      <div class="section-title">📦 Repositories (${repos.length} total)</div>
+      <div style="overflow-x:auto">
+        <table class="repos-table">
+          <thead>
+            <tr>
+              <th>Repository</th><th>Description</th><th>Language</th>
+              <th>⭐</th><th>🍴</th><th>Issues</th><th>Last Push</th>
+            </tr>
+          </thead>
+          <tbody id="repos-tbody">${rows}</tbody>
+        </table>
+      </div>
+      ${seeMore}
+    </div>`;
+}
+
+// ── Activity section with See More ────────────────────────────────────────────
+function buildActivitySection(events, initial) {
+  const map = {
+    PushEvent:         e => ({ icon: '📦', text: `Pushed to <a href="https://github.com/${e.repo.name}" target="_blank">${e.repo.name}</a>` }),
+    CreateEvent:       e => ({ icon: '✨', text: `Created ${e.payload.ref_type} in <a href="https://github.com/${e.repo.name}" target="_blank">${e.repo.name}</a>` }),
+    IssuesEvent:       e => ({ icon: '🐛', text: `${e.payload.action} issue in <a href="https://github.com/${e.repo.name}" target="_blank">${e.repo.name}</a>` }),
+    PullRequestEvent:  e => ({ icon: '🔀', text: `${e.payload.action} PR in <a href="https://github.com/${e.repo.name}" target="_blank">${e.repo.name}</a>` }),
+    WatchEvent:        e => ({ icon: '⭐', text: `Starred <a href="https://github.com/${e.repo.name}" target="_blank">${e.repo.name}</a>` }),
+    ForkEvent:         e => ({ icon: '🍴', text: `Forked <a href="https://github.com/${e.repo.name}" target="_blank">${e.repo.name}</a>` }),
+    IssueCommentEvent: e => ({ icon: '💬', text: `Commented in <a href="https://github.com/${e.repo.name}" target="_blank">${e.repo.name}</a>` }),
+    ReleaseEvent:      e => ({ icon: '🚀', text: `Published a release in <a href="https://github.com/${e.repo.name}" target="_blank">${e.repo.name}</a>` }),
+    DeleteEvent:       e => ({ icon: '🗑️', text: `Deleted ${e.payload.ref_type} in <a href="https://github.com/${e.repo.name}" target="_blank">${e.repo.name}</a>` }),
+    MemberEvent:       e => ({ icon: '👥', text: `${e.payload.action} collaborator in <a href="https://github.com/${e.repo.name}" target="_blank">${e.repo.name}</a>` }),
+  };
+
+  const filtered = events.filter(e => map[e.type]);
+  if (!filtered.length) return `
+    <div class="card repos-section" style="margin-bottom:24px">
+      <div class="section-title">⚡ Recent Public Activity</div>
+      <div style="padding:20px;font-family:var(--mono);font-size:0.8rem;color:var(--muted)">No recent public activity.</div>
+    </div>`;
+
+  const items = filtered.map((e, i) => {
+    const { icon, text } = map[e.type](e);
+    const extra = i >= initial ? 'extra-item' : '';
+    return `
+      <div class="activity-item ${extra}" id="activity-item-${i}">
+        <div class="activity-icon">${icon}</div>
+        <div class="activity-text">${text}</div>
+        <div class="activity-date">${fmt(e.created_at)}</div>
+      </div>`;
+  }).join('');
+
+  const hiddenCount = filtered.length - initial;
+  const seeMore = hiddenCount > 0 ? `
+    <div class="see-more-wrap">
+      <button class="see-more-btn" id="activity-more-btn" onclick="toggleSection('activity', ${initial})">
+        Show ${hiddenCount} more events <span class="chevron">▼</span>
+      </button>
+      <span class="see-more-count" id="activity-more-count">showing ${initial} of ${filtered.length}</span>
+    </div>` : '';
+
+  return `
+    <div class="card repos-section" style="margin-bottom:24px">
+      <div class="section-title">⚡ Recent Public Activity</div>
+      <div class="activity-list" id="activity-list">${items}</div>
+      ${seeMore}
+    </div>`;
+}
+
+// ── Orgs section with See More ────────────────────────────────────────────────
+function buildOrgsSection(orgs, initial) {
+  const cards = orgs.map((o, i) => {
+    const extra = i >= initial ? 'extra-org' : '';
+    return `
+      <a class="org-card ${extra}" id="org-card-${i}" href="https://github.com/${o.login}" target="_blank">
+        <img class="org-avatar" src="${o.avatar_url}&s=72" alt="${o.login}"/>
+        <div>
+          <div class="org-name">${o.login}</div>
+          <div class="org-handle">github.com/${o.login}</div>
+        </div>
+      </a>`;
+  }).join('');
+
+  const hiddenCount = orgs.length - initial;
+  const seeMore = hiddenCount > 0 ? `
+    <div class="see-more-wrap">
+      <button class="see-more-btn" id="orgs-more-btn" onclick="toggleSection('orgs', ${initial})">
+        Show ${hiddenCount} more orgs <span class="chevron">▼</span>
+      </button>
+      <span class="see-more-count" id="orgs-more-count">showing ${initial} of ${orgs.length}</span>
+    </div>` : '';
+
+  return `
+    <div class="card repos-section">
+      <div class="section-title">🏢 Organisations (${orgs.length})</div>
+      <div class="orgs-grid" id="orgs-grid">${cards}</div>
+      ${seeMore}
+    </div>`;
+}
+
+// ── Language bar with See More ────────────────────────────────────────────────
+function buildLangBar(langTotals, initial) {
+  const sorted = Object.entries(langTotals).sort((a,b)=>b[1]-a[1]);
+  const total  = sorted.reduce((s,[,b])=>s+b, 0);
+  if (!total) return '<div class="card-body" style="font-family:var(--mono);font-size:0.8rem;color:var(--muted)">No language data</div>';
+
+  // Bar always shows top 8 visually but legend is expandable
+  const barTop = sorted.slice(0, 8);
+  const barSegments = barTop.map(([lang, bytes]) => {
+    const pct   = ((bytes/total)*100).toFixed(1);
+    const color = LANG_COLORS[lang] || LANG_COLORS.Default;
+    return `<div class="lang-segment" style="width:${pct}%;background:${color}" title="${lang} ${pct}%"></div>`;
+  }).join('');
+
+  const legend = sorted.map(([lang, bytes], i) => {
+    const pct   = ((bytes/total)*100).toFixed(1);
+    const color = LANG_COLORS[lang] || LANG_COLORS.Default;
+    const extra = i >= initial ? 'extra-item' : '';
+    return `<div class="lang-item ${extra}" id="lang-item-${i}">
+      <span class="lang-dot" style="background:${color}"></span>
+      ${lang} <span style="color:var(--text)">${pct}%</span>
+    </div>`;
+  }).join('');
+
+  const hiddenCount = sorted.length - initial;
+  const seeMore = hiddenCount > 0 ? `
+    <div style="margin-top:8px">
+      <button class="see-more-btn" id="langs-more-btn" onclick="toggleSection('langs', ${initial})" style="font-size:0.7rem;padding:4px 10px">
+        +${hiddenCount} more languages <span class="chevron">▼</span>
+      </button>
+    </div>` : '';
+
+  return `
+    <div class="lang-bar-wrap">
+      <div class="lang-bar">${barSegments}</div>
+      <div class="lang-legend" id="lang-legend">${legend}</div>
+      ${seeMore}
+    </div>`;
+}
+
+// ── Toggle function: reveals/hides extra items by section name ────────────────
+function toggleSection(section, initial) {
+  const btn = document.getElementById(`${section}-more-btn`);
+  const countEl = document.getElementById(`${section}-more-count`);
+  const isExpanded = btn.classList.contains('expanded');
+
+  let selector;
+  if (section === 'repos')    selector = '#repos-tbody .extra-row';
+  if (section === 'activity') selector = '.activity-list .extra-item';
+  if (section === 'orgs')     selector = '#orgs-grid .extra-org';
+  if (section === 'langs')    selector = '#lang-legend .extra-item';
+
+  const items = document.querySelectorAll(selector);
+  const total = document.querySelectorAll(selector.replace('.extra-row','tr').replace('.extra-item','div').replace('.extra-org','a')).length || items.length + initial;
+
+  if (isExpanded) {
+    // Collapse
+    items.forEach(el => el.classList.remove('visible'));
+    btn.classList.remove('expanded');
+    btn.innerHTML = `Show ${items.length} more ${section === 'repos' ? 'repos' : section === 'langs' ? 'languages' : section} <span class="chevron">▼</span>`;
+    if (countEl) countEl.textContent = `showing ${initial} of ${items.length + initial}`;
+    // Scroll back to button
+    btn.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  } else {
+    // Expand
+    items.forEach(el => el.classList.add('visible'));
+    btn.classList.add('expanded');
+    btn.innerHTML = `Show less <span class="chevron">▼</span>`;
+    if (countEl) countEl.textContent = `showing all ${items.length + initial}`;
+  }
+}
+
+// ── Stars chart with toggle ───────────────────────────────────────────────────
+function renderStarsChart(repos, limit) {
+  const starred = repos.filter(r=>r.stargazers_count>0).sort((a,b)=>b.stargazers_count-a.stargazers_count);
+  const top     = starred.slice(0, limit);
+  if (!top.length) return;
+  const ctx = document.getElementById('stars-chart');
+  if (!ctx) return;
+
+  if (chartInstances.stars) chartInstances.stars.destroy();
+
+  chartInstances.stars = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: top.map(r => r.name.length > 14 ? r.name.slice(0,13)+'…' : r.name),
+      datasets: [{
+        data: top.map(r => r.stargazers_count),
+        backgroundColor: top.map((_,i) => `hsla(${200 + i*12},80%,65%,0.7)`),
+        borderColor:     top.map((_,i) => `hsla(${200 + i*12},80%,65%,1)`),
+        borderWidth: 1, borderRadius: 4,
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { grid: { color: '#21262d' }, ticks: { color: '#8b949e', font: { family: 'JetBrains Mono', size: 10 } } },
+        y: { grid: { color: '#21262d' }, ticks: { color: '#8b949e', font: { family: 'JetBrains Mono', size: 10 } } }
+      }
+    }
+  });
+}
+
+function toggleStarsChart(btn) {
+  const repos    = window._statsRepos || [];
+  const expanded = window._statsChartExpanded;
+  const starred  = repos.filter(r=>r.stargazers_count>0);
+  const newLimit = expanded ? 8 : Math.min(starred.length, 20);
+  const countEl  = document.getElementById('stars-more-count');
+  const subtitle = document.getElementById('stars-subtitle');
+
+  window._statsChartExpanded = !expanded;
+  renderStarsChart(repos, newLimit);
+
+  if (expanded) {
+    btn.classList.remove('expanded');
+    btn.innerHTML = `Show more repos <span class="chevron">▼</span>`;
+    if (countEl) countEl.textContent = `${starred.length - 8} more`;
+    if (subtitle) subtitle.textContent = 'Top 8 starred';
+  } else {
+    btn.classList.add('expanded');
+    btn.innerHTML = `Show less <span class="chevron">▼</span>`;
+    if (countEl) countEl.textContent = `showing all ${starred.length}`;
+    if (subtitle) subtitle.textContent = `All ${starred.length} starred repos`;
+  }
+}
+
+</script>
+</body>
+</html>

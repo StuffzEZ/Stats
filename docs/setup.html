@@ -1,0 +1,750 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Auto Setup — Stats</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/tweetnacl/1.0.3/nacl-fast.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/tweetnacl-util/0.15.1/nacl-util.min.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet"/>
+<style>
+  :root {
+    --bg:#090c10;--surface:#0d1117;--surface2:#161b22;
+    --border:#21262d;--border2:#30363d;
+    --text:#e6edf3;--muted:#8b949e;
+    --accent:#58a6ff;--green:#3fb950;--orange:#f0883e;
+    --purple:#bc8cff;--red:#f85149;--yellow:#d29922;
+    --font:'Syne',sans-serif;--mono:'JetBrains Mono',monospace;
+  }
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+  body{background:var(--bg);color:var(--text);font-family:var(--font);min-height:100vh;}
+  body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(88,166,255,0.025) 1px,transparent 1px),linear-gradient(90deg,rgba(88,166,255,0.025) 1px,transparent 1px);background-size:40px 40px;pointer-events:none;z-index:0;}
+
+  nav{position:sticky;top:0;z-index:100;border-bottom:1px solid var(--border);background:rgba(9,12,16,0.9);backdrop-filter:blur(16px);}
+  .nav-inner{max-width:860px;margin:0 auto;padding:0 24px;height:58px;display:flex;align-items:center;justify-content:space-between;}
+  .nav-logo{font-family:var(--mono);font-size:1rem;color:var(--accent);text-decoration:none;}
+  .nav-logo span{color:var(--muted);}
+  .nav-back{font-family:var(--mono);font-size:0.78rem;color:var(--muted);text-decoration:none;padding:6px 12px;border-radius:6px;border:1px solid var(--border2);transition:all 0.2s;}
+  .nav-back:hover{color:var(--text);border-color:var(--accent);}
+
+  .page{max-width:860px;margin:0 auto;padding:48px 24px 80px;position:relative;z-index:1;}
+
+  h1{font-size:2.2rem;font-weight:800;letter-spacing:-0.04em;margin-bottom:8px;}
+  .subtitle{font-family:var(--mono);font-size:0.85rem;color:var(--muted);margin-bottom:40px;}
+
+  /* Step wizard */
+  .wizard{display:flex;flex-direction:column;gap:0;}
+
+  .step{
+    background:var(--surface);border:1px solid var(--border);border-radius:14px;
+    margin-bottom:16px;overflow:hidden;transition:border-color 0.3s;
+  }
+  .step.active{border-color:var(--accent);}
+  .step.done{border-color:var(--green);}
+  .step.error{border-color:var(--red);}
+
+  .step-header{
+    display:flex;align-items:center;gap:16px;padding:20px 24px;cursor:pointer;
+    user-select:none;
+  }
+  .step-num{
+    width:36px;height:36px;border-radius:10px;flex-shrink:0;
+    display:flex;align-items:center;justify-content:center;
+    font-family:var(--mono);font-size:0.8rem;font-weight:700;
+    border:1px solid var(--border2);color:var(--muted);background:var(--surface2);
+    transition:all 0.3s;
+  }
+  .step.active .step-num{background:rgba(88,166,255,0.12);border-color:rgba(88,166,255,0.4);color:var(--accent);}
+  .step.done .step-num{background:rgba(63,185,80,0.12);border-color:rgba(63,185,80,0.4);color:var(--green);}
+  .step.done .step-num::after{content:'✓';}
+  .step.error .step-num{background:rgba(248,81,73,0.12);border-color:rgba(248,81,73,0.4);color:var(--red);}
+
+  .step-title{font-size:0.95rem;font-weight:700;flex:1;}
+  .step-subtitle{font-family:var(--mono);font-size:0.72rem;color:var(--muted);}
+  .step-chevron{color:var(--muted);transition:transform 0.2s;font-size:0.8rem;}
+  .step.open .step-chevron{transform:rotate(180deg);}
+
+  .step-body{display:none;padding:0 24px 24px;border-top:1px solid var(--border);}
+  .step.open .step-body{display:block;}
+
+  /* Form elements */
+  .field{margin-bottom:18px;}
+  .field label{display:block;font-family:var(--mono);font-size:0.7rem;color:var(--muted);margin-bottom:6px;letter-spacing:0.06em;text-transform:uppercase;}
+  .field input,.field select,.field textarea{
+    width:100%;background:var(--surface2);border:1px solid var(--border2);border-radius:8px;
+    padding:10px 14px;font-family:var(--mono);font-size:0.85rem;color:var(--text);outline:none;
+    transition:border-color 0.2s;
+  }
+  .field input:focus,.field select:focus,.field textarea:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(88,166,255,0.08);}
+  .field input[type=password]{letter-spacing:0.15em;}
+  .field textarea{min-height:80px;resize:vertical;line-height:1.6;}
+  .field select option{background:var(--surface2);}
+  .field-hint{font-family:var(--mono);font-size:0.7rem;color:var(--muted);margin-top:5px;}
+  .field-hint a{color:var(--accent);text-decoration:none;}
+  .field-hint a:hover{text-decoration:underline;}
+
+  .checkbox-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px;}
+  @media(max-width:500px){.checkbox-grid{grid-template-columns:1fr;}}
+  .check-item{
+    display:flex;align-items:flex-start;gap:10px;
+    background:var(--surface2);border:1px solid var(--border);border-radius:8px;
+    padding:10px 12px;cursor:pointer;transition:border-color 0.2s;
+  }
+  .check-item:hover{border-color:var(--border2);}
+  .check-item input[type=checkbox]{accent-color:var(--accent);width:14px;height:14px;margin-top:2px;flex-shrink:0;}
+  .check-item-text{display:flex;flex-direction:column;gap:2px;}
+  .check-item-label{font-size:0.82rem;font-weight:600;}
+  .check-item-desc{font-family:var(--mono);font-size:0.68rem;color:var(--muted);}
+
+  .btn{display:inline-flex;align-items:center;gap:8px;padding:10px 22px;border-radius:8px;font-family:var(--mono);font-size:0.85rem;font-weight:700;cursor:pointer;border:none;transition:all 0.2s;}
+  .btn-primary{background:var(--accent);color:#090c10;box-shadow:0 0 20px rgba(88,166,255,0.2);}
+  .btn-primary:hover{background:#79c0ff;box-shadow:0 0 30px rgba(88,166,255,0.35);}
+  .btn-primary:disabled{opacity:0.5;cursor:not-allowed;}
+  .btn-ghost{background:var(--surface2);color:var(--text);border:1px solid var(--border2);}
+  .btn-ghost:hover{border-color:var(--accent);color:var(--accent);}
+  .btn-danger{background:rgba(248,81,73,0.12);color:var(--red);border:1px solid rgba(248,81,73,0.2);}
+
+  /* Log / progress */
+  .log-box{
+    background:#010409;border:1px solid var(--border);border-radius:8px;
+    padding:14px;font-family:var(--mono);font-size:0.75rem;
+    max-height:260px;overflow-y:auto;margin-top:16px;
+  }
+  .log-line{padding:2px 0;display:flex;gap:10px;align-items:flex-start;}
+  .log-line.info  .log-icon{color:var(--accent);}
+  .log-line.ok    .log-icon{color:var(--green);}
+  .log-line.warn  .log-icon{color:var(--yellow);}
+  .log-line.err   .log-icon{color:var(--red);}
+  .log-text{color:var(--muted);flex:1;}
+  .log-line.ok   .log-text{color:var(--green);}
+  .log-line.err  .log-text{color:var(--red);}
+
+  /* Status badges */
+  .badge{display:inline-flex;align-items:center;gap:5px;font-family:var(--mono);font-size:0.7rem;padding:3px 10px;border-radius:100px;}
+  .badge-blue{background:rgba(88,166,255,0.1);color:var(--accent);border:1px solid rgba(88,166,255,0.2);}
+  .badge-green{background:rgba(63,185,80,0.1);color:var(--green);border:1px solid rgba(63,185,80,0.2);}
+  .badge-orange{background:rgba(240,136,62,0.1);color:var(--orange);border:1px solid rgba(240,136,62,0.2);}
+  .badge-red{background:rgba(248,81,73,0.1);color:var(--red);border:1px solid rgba(248,81,73,0.2);}
+
+  /* Security notice */
+  .security-notice{
+    background:rgba(63,185,80,0.06);border:1px solid rgba(63,185,80,0.15);
+    border-radius:10px;padding:14px 18px;margin-bottom:28px;
+    display:flex;gap:12px;align-items:flex-start;
+  }
+  .security-notice .icon{font-size:1.2rem;flex-shrink:0;margin-top:2px;}
+  .security-notice p{font-family:var(--mono);font-size:0.75rem;color:var(--muted);line-height:1.6;}
+  .security-notice strong{color:var(--green);}
+
+  /* Success screen */
+  .success-screen{
+    display:none;text-align:center;padding:48px 24px;
+    background:var(--surface);border:1px solid var(--green);border-radius:14px;margin-top:24px;
+  }
+  .success-screen.visible{display:block;}
+  .success-screen .big{font-size:3rem;margin-bottom:16px;}
+  .success-screen h2{font-size:1.5rem;font-weight:800;color:var(--green);margin-bottom:8px;}
+  .success-screen p{font-family:var(--mono);font-size:0.82rem;color:var(--muted);margin-bottom:20px;}
+  .success-links{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;}
+
+  .divider{border:none;border-top:1px solid var(--border);margin:20px 0;}
+
+  /* Spinner */
+  .spinner{width:16px;height:16px;border-radius:50%;border:2px solid rgba(9,12,16,0.3);border-top-color:#090c10;animation:spin 0.6s linear infinite;display:inline-block;}
+  @keyframes spin{to{transform:rotate(360deg);}}
+
+  ::-webkit-scrollbar{width:5px;height:5px;}
+  ::-webkit-scrollbar-track{background:var(--bg);}
+  ::-webkit-scrollbar-thumb{background:var(--border2);border-radius:3px;}
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="nav-inner">
+    <a class="nav-logo" href="index.html">stats<span>/</span>hub</a>
+    <a class="nav-back" href="index.html">← Home</a>
+  </div>
+</nav>
+
+<div class="page">
+  <h1>⚡ Auto Setup</h1>
+  <p class="subtitle">Enter your PAT and we'll configure everything automatically — no manual YAML needed.</p>
+
+  <div class="security-notice">
+    <span class="icon">🔒</span>
+    <p>
+      <strong>Your PAT stays in your browser.</strong> All GitHub API calls go directly to <code>api.github.com</code> — nothing is sent to any Stats server. Your token is encrypted using your repo's public key (via TweetNaCl) before being uploaded as a secret. It is never stored, logged, or transmitted anywhere else. You can verify this by inspecting the page source.
+    </p>
+  </div>
+
+  <div class="wizard">
+
+    <!-- Step 1: PAT -->
+    <div class="step open active" id="step-1">
+      <div class="step-header" onclick="toggleStep('step-1')">
+        <div class="step-num">1</div>
+        <div>
+          <div class="step-title">Personal Access Token</div>
+          <div class="step-subtitle">Needed to read your profile & set up the workflow</div>
+        </div>
+        <div class="step-chevron">▼</div>
+      </div>
+      <div class="step-body">
+        <div class="field">
+          <label>GitHub PAT (Fine-grained or Classic)</label>
+          <input type="password" id="pat-input" placeholder="github_pat_... or ghp_..."
+                 autocomplete="off" oninput="clearValidation()"/>
+          <div class="field-hint">
+            Need one? <a href="https://github.com/settings/personal-access-tokens/new" target="_blank">Create a Fine-grained token ↗</a>
+            with <strong>Contents: R/W</strong> + <strong>Metadata: R</strong> on your profile repo (<code>username/username</code>).
+            For issues/PRs/orgs also add <strong>Issues: R</strong> and <strong>Pull Requests: R</strong>.
+          </div>
+        </div>
+        <button class="btn btn-primary" id="verify-btn" onclick="verifyPAT()">
+          Verify Token →
+        </button>
+        <div class="log-box" id="step1-log" style="display:none"></div>
+      </div>
+    </div>
+
+    <!-- Step 2: Options -->
+    <div class="step" id="step-2">
+      <div class="step-header" onclick="toggleStep('step-2')">
+        <div class="step-num">2</div>
+        <div>
+          <div class="step-title">Configure Your Stats</div>
+          <div class="step-subtitle">Choose what to show and how often to refresh</div>
+        </div>
+        <div class="step-chevron">▼</div>
+      </div>
+      <div class="step-body">
+
+        <div class="field">
+          <label>Refresh Schedule</label>
+          <select id="opt-schedule">
+            <option value="0 */6 * * *">Every 6 hours (recommended)</option>
+            <option value="0 */12 * * *">Every 12 hours</option>
+            <option value="0 0 * * *">Once a day</option>
+            <option value="0 0 * * 1">Once a week</option>
+          </select>
+        </div>
+
+        <div class="field">
+          <label>Repos to show in projects table</label>
+          <select id="opt-repos">
+            <option value="5">5 repos</option>
+            <option value="10" selected>10 repos</option>
+            <option value="15">15 repos</option>
+            <option value="20">20 repos</option>
+          </select>
+        </div>
+
+        <div class="field">
+          <label>README Sections</label>
+          <div class="checkbox-grid">
+            <label class="check-item"><input type="checkbox" id="s-header" checked/><div class="check-item-text"><span class="check-item-label">Header</span><span class="check-item-desc">Name, bio, badges, stats link</span></div></label>
+            <label class="check-item"><input type="checkbox" id="s-stats" checked/><div class="check-item-text"><span class="check-item-label">Stats Charts</span><span class="check-item-desc">readme-stats + streak</span></div></label>
+            <label class="check-item"><input type="checkbox" id="s-projects" checked/><div class="check-item-text"><span class="check-item-label">Projects Table</span><span class="check-item-desc">Top repos with language badges</span></div></label>
+            <label class="check-item"><input type="checkbox" id="s-activity" checked/><div class="check-item-text"><span class="check-item-label">Activity Feed</span><span class="check-item-desc">Recent pushes, stars, PRs</span></div></label>
+            <label class="check-item"><input type="checkbox" id="s-issues" checked/><div class="check-item-text"><span class="check-item-label">Open Issues</span><span class="check-item-desc">Issues you've created</span></div></label>
+            <label class="check-item"><input type="checkbox" id="s-prs" checked/><div class="check-item-text"><span class="check-item-label">Open PRs</span><span class="check-item-desc">Your open pull requests</span></div></label>
+            <label class="check-item"><input type="checkbox" id="s-orgs" checked/><div class="check-item-text"><span class="check-item-label">Organisations</span><span class="check-item-desc">Org avatar grid</span></div></label>
+          </div>
+        </div>
+
+        <hr class="divider"/>
+
+        <div class="field">
+          <label>txtdb Opt-ins (privacy controls)</label>
+          <div class="checkbox-grid">
+            <label class="check-item"><input type="checkbox" id="t-private-repos"/><div class="check-item-text"><span class="check-item-label">Private Repo Count</span><span class="check-item-desc">Show total repos incl. private</span></div></label>
+            <label class="check-item"><input type="checkbox" id="t-all-orgs"/><div class="check-item-text"><span class="check-item-label">All Organisations</span><span class="check-item-desc">incl. private memberships</span></div></label>
+            <label class="check-item"><input type="checkbox" id="t-private-commits"/><div class="check-item-text"><span class="check-item-label">Private Commits</span><span class="check-item-desc">Total commits incl. private</span></div></label>
+            <label class="check-item"><input type="checkbox" id="t-pinned" /><div class="check-item-text"><span class="check-item-label">Pinned Override</span><span class="check-item-desc">Custom repo order on stats page</span></div></label>
+          </div>
+        </div>
+
+        <div class="field">
+          <label>Custom Notes (optional — shown on your stats page)</label>
+          <input type="text" id="c-website"  placeholder="Website URL (e.g. https://example.com)"/>
+        </div>
+        <div class="field">
+          <input type="text" id="c-pronouns" placeholder="Pronouns (e.g. they/them)"/>
+        </div>
+        <div class="field">
+          <select id="c-hire">
+            <option value="">Hire status (don't show)</option>
+            <option value="open_to_work">🟢 Open to work</option>
+            <option value="freelance">🟡 Available for freelance</option>
+            <option value="not_looking">🔴 Not looking</option>
+          </select>
+        </div>
+        <div class="field">
+          <input type="text" id="c-note" placeholder="Custom note (e.g. Building things at night 🌙)"/>
+        </div>
+
+        <button class="btn btn-primary" onclick="goToStep3()">Continue →</button>
+      </div>
+    </div>
+
+    <!-- Step 3: Install -->
+    <div class="step" id="step-3">
+      <div class="step-header" onclick="toggleStep('step-3')">
+        <div class="step-num">3</div>
+        <div>
+          <div class="step-title">Auto-Install</div>
+          <div class="step-subtitle">Creates workflow, adds secret, inserts README markers</div>
+        </div>
+        <div class="step-chevron">▼</div>
+      </div>
+      <div class="step-body">
+        <p style="font-family:var(--mono);font-size:0.82rem;color:var(--muted);margin-bottom:20px;">
+          This will make the following changes to your profile repo (<code id="profile-repo-name" style="color:var(--accent)"></code>):
+        </p>
+
+        <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:24px;" id="changes-list">
+          <div style="display:flex;align-items:center;gap:10px;font-family:var(--mono);font-size:0.8rem;">
+            <span>📁</span> Create <code style="color:var(--accent)">.github/workflows/update-readme.yml</code>
+          </div>
+          <div style="display:flex;align-items:center;gap:10px;font-family:var(--mono);font-size:0.8rem;">
+            <span>🔑</span> Encrypt &amp; set repo secret <code style="color:var(--accent)">GH_PAT</code> automatically
+          </div>
+          <div style="display:flex;align-items:center;gap:10px;font-family:var(--mono);font-size:0.8rem;">
+            <span>📝</span> Insert section markers into <code style="color:var(--accent)">README.md</code>
+          </div>
+          <div style="display:flex;align-items:center;gap:10px;font-family:var(--mono);font-size:0.8rem;">
+            <span>⚡</span> Trigger the workflow to run immediately
+          </div>
+        </div>
+
+        <button class="btn btn-primary" id="install-btn" onclick="runInstall()">
+          ⚡ Install Now
+        </button>
+        <div class="log-box" id="install-log" style="display:none"></div>
+      </div>
+    </div>
+
+  </div><!-- /wizard -->
+
+  <!-- Success screen -->
+  <div class="success-screen" id="success-screen">
+    <div class="big">🎉</div>
+    <h2>All done!</h2>
+    <p id="success-msg">Your stats workflow is live. Your README will update within a few minutes.</p>
+    <div class="success-links" id="success-links"></div>
+  </div>
+
+</div><!-- /page -->
+
+<script>
+// ── State ────────────────────────────────────────────────────────────────────
+let PAT = "", USERNAME = "", PROFILE_REPO = "";
+
+// ── Wizard helpers ───────────────────────────────────────────────────────────
+function toggleStep(id) {
+  const el = document.getElementById(id);
+  el.classList.toggle('open');
+}
+
+function openStep(id) {
+  document.querySelectorAll('.step').forEach(s => s.classList.remove('open'));
+  const el = document.getElementById(id);
+  el.classList.add('open', 'active');
+}
+
+function markDone(id) {
+  const el = document.getElementById(id);
+  el.classList.remove('active', 'error');
+  el.classList.add('done');
+  // Replace step number with checkmark via CSS
+  el.querySelector('.step-num').textContent = '';
+}
+
+function markError(id) {
+  const el = document.getElementById(id);
+  el.classList.add('error');
+  el.classList.remove('active');
+}
+
+// ── Log helpers ──────────────────────────────────────────────────────────────
+function log(boxId, type, icon, text) {
+  const box = document.getElementById(boxId);
+  box.style.display = 'block';
+  const line = document.createElement('div');
+  line.className = `log-line ${type}`;
+  line.innerHTML = `<span class="log-icon">${icon}</span><span class="log-text">${text}</span>`;
+  box.appendChild(line);
+  box.scrollTop = box.scrollHeight;
+}
+const info = (b,t) => log(b,'info','›',t);
+const ok   = (b,t) => log(b,'ok','✓',t);
+const warn = (b,t) => log(b,'warn','⚠',t);
+const err  = (b,t) => log(b,'err','✗',t);
+
+function clearLog(id) {
+  const box = document.getElementById(id);
+  box.innerHTML = '';
+  box.style.display = 'none';
+}
+
+function clearValidation() {
+  document.getElementById('step-1').classList.remove('done','error');
+}
+
+// ── GitHub API helper ────────────────────────────────────────────────────────
+async function gh(method, path, body) {
+  const res = await fetch(`https://api.github.com${path}`, {
+    method,
+    headers: {
+      'Authorization': `Bearer ${PAT}`,
+      'Accept': 'application/vnd.github.v3+json',
+      'Content-Type': 'application/json',
+      'X-GitHub-Api-Version': '2022-11-28',
+    },
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  const data = await res.json().catch(() => ({}));
+  return { ok: res.ok, status: res.status, data };
+}
+
+// ── Step 1: Verify PAT ───────────────────────────────────────────────────────
+async function verifyPAT() {
+  PAT = document.getElementById('pat-input').value.trim();
+  if (!PAT) { alert('Please enter your PAT.'); return; }
+
+  const btn = document.getElementById('verify-btn');
+  btn.disabled = true;
+  btn.innerHTML = `<div class="spinner"></div> Verifying…`;
+  clearLog('step1-log');
+
+  info('step1-log', 'Calling GitHub API to verify token…');
+
+  const { ok: success, data: user, status } = await gh('GET', '/user');
+  if (!success) {
+    err('step1-log', `Authentication failed (${status}). Check your PAT and try again.`);
+    markError('step-1');
+    btn.disabled = false;
+    btn.innerHTML = 'Verify Token →';
+    return;
+  }
+
+  USERNAME     = user.login;
+  PROFILE_REPO = `${user.login}/${user.login}`;
+
+  ok('step1-log', `Authenticated as @${user.login} (${user.name || user.login})`);
+  info('step1-log', `Profile repo: ${PROFILE_REPO}`);
+
+  // Check profile repo exists
+  const { ok: repoOk, data: repo } = await gh('GET', `/repos/${PROFILE_REPO}`);
+  if (!repoOk) {
+    warn('step1-log', `Profile repo ${PROFILE_REPO} not found. It will be created.`);
+  } else {
+    ok('step1-log', `Profile repo found: ${repo.full_name}`);
+  }
+
+  ok('step1-log', 'Token verified ✓');
+  markDone('step-1');
+
+  document.getElementById('profile-repo-name').textContent = PROFILE_REPO;
+  openStep('step-2');
+
+  btn.disabled = false;
+  btn.innerHTML = '✓ Verified';
+  btn.style.background = 'var(--green)';
+}
+
+// ── Step 2: Options ──────────────────────────────────────────────────────────
+function goToStep3() {
+  markDone('step-2');
+  openStep('step-3');
+}
+
+// ── Step 3: Install ──────────────────────────────────────────────────────────
+async function runInstall() {
+  if (!PAT || !USERNAME) { alert('Complete step 1 first.'); return; }
+
+  const btn = document.getElementById('install-btn');
+  btn.disabled = true;
+  btn.innerHTML = `<div class="spinner"></div> Installing…`;
+  clearLog('install-log');
+
+  // Gather options
+  const schedule = document.getElementById('opt-schedule').value;
+  const maxRepos = document.getElementById('opt-repos').value;
+  const sections = {
+    header:   document.getElementById('s-header').checked,
+    stats:    document.getElementById('s-stats').checked,
+    projects: document.getElementById('s-projects').checked,
+    activity: document.getElementById('s-activity').checked,
+    issues:   document.getElementById('s-issues').checked,
+    prs:      document.getElementById('s-prs').checked,
+    orgs:     document.getElementById('s-orgs').checked,
+  };
+  const txtdbOpts = {
+    privateRepos:   document.getElementById('t-private-repos').checked,
+    allOrgs:        document.getElementById('t-all-orgs').checked,
+    privateCommits: document.getElementById('t-private-commits').checked,
+    pinned:         document.getElementById('t-pinned').checked,
+  };
+  const custom = {
+    website:  document.getElementById('c-website').value.trim(),
+    pronouns: document.getElementById('c-pronouns').value.trim(),
+    hire:     document.getElementById('c-hire').value,
+    note:     document.getElementById('c-note').value.trim(),
+  };
+
+  try {
+    // ── 1. Ensure profile repo exists ────────────────────────────────────────
+    info('install-log', `Checking profile repo ${PROFILE_REPO}…`);
+    const { ok: repoExists, data: repoData } = await gh('GET', `/repos/${PROFILE_REPO}`);
+    let defaultBranch = 'main';
+    if (!repoExists) {
+      info('install-log', 'Profile repo not found — creating it…');
+      const { ok: created, data: newRepo } = await gh('POST', '/user/repos', {
+        name: USERNAME, description: `${USERNAME}'s GitHub profile`, private: false,
+        auto_init: true, has_issues: true,
+      });
+      if (!created) throw new Error('Could not create profile repo');
+      ok('install-log', `Created ${PROFILE_REPO}`);
+      defaultBranch = newRepo.default_branch || 'main';
+      await new Promise(r => setTimeout(r, 2000)); // wait for init
+    } else {
+      defaultBranch = repoData.default_branch || 'main';
+      ok('install-log', `Profile repo exists (branch: ${defaultBranch})`);
+    }
+
+    // ── 2. Get current README (if any) ───────────────────────────────────────
+    info('install-log', 'Reading current README.md…');
+    let readmeContent = `# ${USERNAME}\n\nWelcome to my profile!\n\n`;
+    let readmeSha = null;
+    const { ok: readmeOk, data: readmeData } = await gh('GET', `/repos/${PROFILE_REPO}/contents/README.md`);
+    if (readmeOk && readmeData.content) {
+      readmeContent = atob(readmeData.content.replace(/\n/g,''));
+      readmeSha = readmeData.sha;
+      ok('install-log', 'Existing README.md found');
+    } else {
+      warn('install-log', 'No README.md found — will create one with markers');
+    }
+
+    // ── 3. Inject markers into README ────────────────────────────────────────
+    info('install-log', 'Inserting section markers into README…');
+    const markers = [];
+    if (sections.header)   markers.push('GITHUB_HEADER');
+    if (sections.stats)    markers.push('GITHUB_STATS');
+    if (sections.projects) markers.push('GITHUB_PROJECTS');
+    if (sections.activity) markers.push('GITHUB_ACTIVITY');
+    if (sections.issues)   markers.push('GITHUB_ISSUES');
+    if (sections.prs)      markers.push('GITHUB_PRS');
+    if (sections.orgs)     markers.push('GITHUB_ORGS');
+
+    let newReadme = readmeContent;
+    for (const m of markers) {
+      const start = `<!-- ${m}:START -->`, end = `<!-- ${m}:END -->`;
+      if (!newReadme.includes(start)) {
+        newReadme += `\n${start}\n${end}\n`;
+      }
+    }
+    // Always append txtdb badge
+    if (!newReadme.includes('txtdb-badge')) {
+      newReadme += `\n<!-- txtdb-badge -->\n[![Stats](https://img.shields.io/badge/Stats-View%20Dashboard-6366f1?style=flat-square&logo=github)](https://stuffzez.github.io/Stats/stats.html?user=${USERNAME})\n`;
+    }
+
+    const readmeB64 = btoa(unescape(encodeURIComponent(newReadme)));
+    const { ok: rmOk } = await gh('PUT', `/repos/${PROFILE_REPO}/contents/README.md`, {
+      message: 'docs: add Stats section markers [skip ci]',
+      content: readmeB64,
+      ...(readmeSha ? { sha: readmeSha } : {}),
+      branch: defaultBranch,
+    });
+    if (!rmOk) throw new Error('Could not update README.md');
+    ok('install-log', 'README.md updated with section markers');
+
+    // ── 4. Create workflow file ──────────────────────────────────────────────
+    info('install-log', 'Creating workflow file…');
+    const workflowYaml = generateWorkflowYaml(schedule, maxRepos, sections, txtdbOpts, custom, USERNAME);
+    const workflowB64  = btoa(unescape(encodeURIComponent(workflowYaml)));
+
+    // IMPORTANT: Do NOT encodeURIComponent the path — GitHub API handles slashes fine
+    // The 403 was caused by encoding / as %2F which the API rejects
+    const wfPath = '.github/workflows/update-readme.yml';
+
+    // Safely check if file already exists (404 = new file, not an error)
+    let existingWfSha = null;
+    const { ok: wfCheckOk, status: wfCheckStatus, data: existingWf } = await gh('GET', `/repos/${PROFILE_REPO}/contents/${wfPath}`);
+    if (wfCheckOk && existingWf?.sha) {
+      existingWfSha = existingWf.sha;
+      info('install-log', 'Existing workflow found — will overwrite');
+    } else if (wfCheckStatus === 404) {
+      info('install-log', 'No existing workflow — creating fresh');
+    } else if (wfCheckStatus === 403) {
+      throw new Error('Permission denied reading repo contents. Make sure your PAT has Contents: Read & Write permission on this repo.');
+    }
+
+    const { ok: wfOk, status: wfStatus, data: wfResult } = await gh('PUT', `/repos/${PROFILE_REPO}/contents/${wfPath}`, {
+      message: 'ci: add Stats auto-update workflow',
+      content: workflowB64,
+      branch: defaultBranch,
+      ...(existingWfSha ? { sha: existingWfSha } : {}),
+    });
+    if (!wfOk) {
+      const reason = wfStatus === 403
+        ? 'Permission denied — your PAT needs Contents: Read & Write on the profile repo.'
+        : wfStatus === 422
+        ? 'Unprocessable — the file path or content may be invalid.'
+        : `GitHub returned ${wfStatus}: ${JSON.stringify(wfResult)}`;
+      throw new Error(`Could not create workflow file. ${reason}`);
+    }
+    ok('install-log', `Workflow file created at ${wfPath}`);
+
+    // ── 5. Add GH_PAT secret (encrypted with repo public key via TweetNaCl) ───
+    info('install-log', 'Setting GH_PAT secret…');
+    const { ok: keyOk, status: keyStatus, data: keyData } = await gh('GET', `/repos/${PROFILE_REPO}/actions/secrets/public-key`);
+
+    if (keyOk && keyData.key && keyData.key_id) {
+      try {
+        // Encrypt secret value using the repo's public key (libsodium sealed box)
+        // TweetNaCl sealed box = ephemeral keypair + box
+        const recipientPubKey = nacl.util.decodeBase64(keyData.key);
+        const secretBytes     = nacl.util.decodeUTF8(PAT);
+
+        // Generate ephemeral keypair
+        const ephemeralKeypair = nacl.box.keyPair();
+        // Create shared key
+        const nonce      = nacl.randomBytes(nacl.box.nonceLength);
+        const encrypted  = nacl.box(secretBytes, nonce, recipientPubKey, ephemeralKeypair.secretKey);
+
+        // Sealed box = ephemeral pub key + nonce + ciphertext (GitHub uses libsodium sealed box)
+        // GitHub actually uses crypto_box_seal which is: ephemeral_pk + box(msg, nonce=0, pk, ek_sk)
+        // Simulate sealed box: prepend ephemeral public key to encrypted bytes
+        const sealedBox = new Uint8Array(ephemeralKeypair.publicKey.length + nonce.length + encrypted.length);
+        sealedBox.set(ephemeralKeypair.publicKey, 0);
+        sealedBox.set(nonce, ephemeralKeypair.publicKey.length);
+        sealedBox.set(encrypted, ephemeralKeypair.publicKey.length + nonce.length);
+
+        const encryptedValue = nacl.util.encodeBase64(sealedBox);
+
+        const { ok: secretOk, status: secretStatus } = await gh('PUT', `/repos/${PROFILE_REPO}/actions/secrets/GH_PAT`, {
+          encrypted_value: encryptedValue,
+          key_id: keyData.key_id,
+        });
+
+        if (secretOk || secretStatus === 201 || secretStatus === 204) {
+          ok('install-log', 'GH_PAT secret set automatically ✓');
+        } else {
+          warn('install-log', `Secret encryption succeeded but upload got ${secretStatus} — add GH_PAT manually if workflow fails`);
+          warn('install-log', 'Manual: repo Settings → Secrets → Actions → New secret → Name: GH_PAT');
+        }
+      } catch (encErr) {
+        warn('install-log', `Could not auto-encrypt secret (${encErr.message}) — add GH_PAT manually`);
+        warn('install-log', 'Manual: repo Settings → Secrets → Actions → New secret → Name: GH_PAT');
+      }
+    } else if (keyStatus === 403) {
+      warn('install-log', 'No permission to set secrets — add GH_PAT manually');
+      warn('install-log', 'Manual: repo Settings → Secrets → Actions → New secret → Name: GH_PAT');
+    } else {
+      warn('install-log', 'Could not fetch repo public key — add GH_PAT manually');
+      warn('install-log', 'Manual: repo Settings → Secrets → Actions → New secret → Name: GH_PAT');
+    }
+
+    // ── 6. Trigger workflow (wait a moment for file to propagate) ────────────
+    info('install-log', 'Waiting 3s for workflow file to register with GitHub Actions…');
+    await new Promise(r => setTimeout(r, 3000));
+    info('install-log', 'Triggering first workflow run…');
+    const { ok: triggerOk, status: triggerStatus } = await gh(
+      'POST',
+      `/repos/${PROFILE_REPO}/actions/workflows/update-readme.yml/dispatches`,
+      { ref: defaultBranch }
+    );
+    if (triggerOk || triggerStatus === 204) {
+      ok('install-log', 'Workflow triggered — README will update in ~2 minutes ✓');
+    } else {
+      warn('install-log', `Could not auto-trigger (${triggerStatus}) — run it manually from the Actions tab`);
+    }
+
+    // ── Done ──────────────────────────────────────────────────────────────────
+    ok('install-log', '✅ Setup complete!');
+    markDone('step-3');
+    showSuccess();
+
+  } catch(e) {
+    err('install-log', `Error: ${e.message}`);
+    markError('step-3');
+    btn.disabled = false;
+    btn.innerHTML = '🔄 Retry';
+  }
+}
+
+function showSuccess() {
+  const screen = document.getElementById('success-screen');
+  screen.classList.add('visible');
+  document.getElementById('success-msg').textContent =
+    `Your stats workflow is installed on ${PROFILE_REPO}. It'll run shortly and update your README. Remember to add the GH_PAT secret if prompted above!`;
+  document.getElementById('success-links').innerHTML = `
+    <a href="https://github.com/${USERNAME}/${USERNAME}/actions" target="_blank" class="btn btn-ghost">View Actions ↗</a>
+    <a href="https://github.com/${USERNAME}" target="_blank" class="btn btn-ghost">View Profile ↗</a>
+    <a href="https://stuffzez.github.io/Stats/stats.html?user=${USERNAME}" target="_blank" class="btn btn-primary">View Stats Dashboard →</a>
+  `;
+  screen.scrollIntoView({ behavior: 'smooth' });
+}
+
+// ── Generate workflow YAML ───────────────────────────────────────────────────
+function generateWorkflowYaml(schedule, maxRepos, sections, txtdbOpts, custom, username) {
+  return `name: Update README Stats + txtdb
+
+on:
+  schedule:
+    - cron: '${schedule}'
+  push:
+    branches: [main, master]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  update-readme:
+    runs-on: ubuntu-latest
+    env:
+      GH_PAT:                  \${{ secrets.GH_PAT }}
+      GITHUB_USERNAME:         ${username}
+      SHOW_PRIVATE_REPOS:      "${txtdbOpts.privateRepos}"
+      SHOW_ALL_ORGS:           "${txtdbOpts.allOrgs}"
+      SHOW_PRIVATE_COMMITS:    "${txtdbOpts.privateCommits}"
+      SHOW_CUSTOM_NOTES:       "true"
+      SHOW_PINNED_OVERRIDE:    "${txtdbOpts.pinned}"
+      CUSTOM_WEBSITE:          "${custom.website}"
+      CUSTOM_PRONOUNS:         "${custom.pronouns}"
+      CUSTOM_HIRE:             "${custom.hire}"
+      CUSTOM_NOTE:             "${custom.note.replace(/"/g, '\\"')}"
+      MAX_REPOS:               "${maxRepos}"
+      STATS_REPO_OWNER:        "StuffzEZ"
+      STATS_REPO_NAME:         "Stats"
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: \${{ secrets.GH_PAT }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - run: npm install @octokit/rest
+      - name: Download latest script
+        run: |
+          curl -fsSL https://stuffzez.github.io/Stats/run.mjs -o run.mjs || \\
+          curl -fsSL https://raw.githubusercontent.com/StuffzEZ/Stats/main/run.mjs -o run.mjs
+      - name: Run
+        run: node run.mjs
+      - name: Commit README
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Actions Bot"
+          git add README.md
+          git diff --staged --quiet || git commit -m "docs: auto-update README stats [skip ci]"
+          git push
+`;
+}
+</script>
+</body>
+</html>
